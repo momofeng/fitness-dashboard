@@ -189,6 +189,25 @@ export default function SettingsPage() {
         </Card>
       </Section>
 
+      <Section title="恢復與減量週">
+        <Card>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="睡眠不足門檻" hint="近 7 天平均低於此值">
+              <NumberInput ariaLabel="睡眠不足門檻" value={s.recovery.lowSleepH} step={0.5} decimals={1} min={LIMITS.lowSleepH[0]} max={LIMITS.lowSleepH[1]} suffix="時" onChange={(v) => v != null && set({ recovery: { lowSleepH: v } })} />
+            </Field>
+            <Field label="精力偏低門檻" hint="近 7 天平均不高於此值">
+              <NumberInput ariaLabel="精力偏低門檻" value={s.recovery.lowEnergy} step={0.5} decimals={1} min={LIMITS.lowEnergy[0]} max={LIMITS.lowEnergy[1]} suffix="/5" onChange={(v) => v != null && set({ recovery: { lowEnergy: v } })} />
+            </Field>
+            <Field label="減量週組數" hint="原本組數的幾 %">
+              <NumberInput ariaLabel="減量週組數百分比" value={s.recovery.deloadSetsPct} step={5} decimals={0} min={LIMITS.deloadSetsPct[0]} max={LIMITS.deloadSetsPct[1]} suffix="%" onChange={(v) => v != null && set({ recovery: { deloadSetsPct: Math.round(v) } })} />
+            </Field>
+            <Field label="減量週重量" hint="原本重量的幾 %">
+              <NumberInput ariaLabel="減量週重量百分比" value={s.recovery.deloadWeightPct} step={5} decimals={0} min={LIMITS.deloadWeightPct[0]} max={LIMITS.deloadWeightPct[1]} suffix="%" onChange={(v) => v != null && set({ recovery: { deloadWeightPct: v } })} />
+            </Field>
+          </div>
+        </Card>
+      </Section>
+
       <Section title="器材">
         <EquipmentCard s={s} />
       </Section>

@@ -12,8 +12,10 @@ import { unlockAudio } from '../../lib/platform';
 import { Button } from '../../ui/Button';
 import { Icon, type IconName } from '../../ui/Icon';
 import { EmptyState, ListRow, PageHeader, Section } from '../../ui/Layout';
+import { AdviceCard, DeloadBanner } from '../recovery/RecoveryParts';
+import { useRecoveryAdvice } from '../recovery/useRecoveryAdvice';
 import { useToday } from '../shared/useToday';
-import { stalledExercises, weekVolume } from './trainingStats';
+import { weekVolume } from './trainingStats';
 import { VolumeList } from './VolumeList';
 
 export default function TrainHome() {
@@ -37,10 +39,8 @@ export default function TrainHome() {
   }, [program?.id, program?.updatedAt, dayIndex]);
 
   const week = useLiveQuery(() => (settings ? weekVolume(today, settings.weekStart) : undefined), [today, settings?.weekStart]);
-  const stalls = useLiveQuery(
-    () => (settings && program ? stalledExercises(program.days.flatMap((d) => d.slots.map((s) => s.exerciseId)), settings, today) : []),
-    [program?.id, today, settings?.training.stallSessions, settings?.training.stallMinDays, settings?.training.stallThresholdPct],
-  );
+  const recovery = useRecoveryAdvice(settings, program, today);
+  const stalls = recovery?.stalls;
 
   if (!settings) return null;
   const unit = settings.units.weight;
@@ -59,6 +59,8 @@ export default function TrainHome() {
   return (
     <div className="flex flex-col gap-6 pb-4">
       <PageHeader title="訓練" />
+      <DeloadBanner settings={settings} today={today} />
+      {recovery && !recovery.deloadActive && recovery.advice.level === 'deload' && <AdviceCard advice={recovery.advice} today={today} />}
 
       {active ? (
         <div className="card flex flex-col gap-3 p-5">
@@ -135,7 +137,7 @@ export default function TrainHome() {
       )}
 
       {stalls && stalls.length > 0 && (
-        <Section title="停滯提醒">
+        <Section title="停滯提醒" action={<Link to="/recovery" className="text-sm text-chalk-3 hover:text-chalk">恢復紀錄</Link>}>
           <div className="card flex flex-col gap-2 p-4">
             {stalls.map((s) => (
               <Link key={s.exerciseId} to={`/train/exercise/${s.exerciseId}`} className="flex items-start gap-3 rounded-md bg-warn-soft px-3 py-2">

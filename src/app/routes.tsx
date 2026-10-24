@@ -35,6 +35,7 @@ export const router = createHashRouter([
           { path: 'settings', lazy: page(() => import('../features/settings/SettingsPage')) },
           { path: 'settings/data', lazy: page(() => import('../features/settings/DataPage')) },
           { path: 'about', lazy: page(() => import('../features/more/AboutPage')) },
+          { path: 'recovery', lazy: page(() => import('../features/recovery/RecoveryPage')) },
           { path: '*', lazy: page(() => import('./NotFound')) },
         ],
       },

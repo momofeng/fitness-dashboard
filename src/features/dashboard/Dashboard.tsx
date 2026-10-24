@@ -17,6 +17,8 @@ import { Meter } from '../../ui/Layout';
 import { Sparkline } from '../../ui/Sparkline';
 import { toast } from '../../ui/toast';
 import { KcalHero, MacroBars } from '../nutrition/MacroSummary';
+import { AdviceCard, DeloadBanner, RecoveryEntry } from '../recovery/RecoveryParts';
+import { useRecoveryAdvice } from '../recovery/useRecoveryAdvice';
 import { exportAndShare } from '../settings/backupActions';
 import { useTargets } from '../shared/useToday';
 import { weekVolume } from '../workout/trainingStats';
@@ -38,6 +40,7 @@ export default function Dashboard() {
   const active = useActiveWorkout();
   const program = useActiveProgram();
   const { get } = useExerciseLookup();
+  const recovery = useRecoveryAdvice(settings, program, today);
   const todayWorkouts = useLiveQuery(() => db.workouts.where('date').equals(today).filter((w) => w.status === 'done').toArray(), [today]);
   const week = useLiveQuery(() => (settings ? weekVolume(today, settings.weekStart) : undefined), [today, settings?.weekStart]);
   const activeDays = useLiveQuery(async () => {
@@ -119,6 +122,9 @@ export default function Dashboard() {
           </Button>
         </div>
       )}
+
+      <DeloadBanner settings={settings} today={today} />
+      {recovery && !recovery.deloadActive && recovery.advice.level === 'deload' && <AdviceCard advice={recovery.advice} today={today} />}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
         {/* 訓練 */}
@@ -251,6 +257,18 @@ export default function Dashboard() {
             </Button>
           </div>
           <Meter value={water} max={settings.nutrition.waterTargetMl} label="喝水進度" height={4} color="var(--carbs)" />
+        </section>
+
+        {/* 恢復 */}
+        <section className="card flex flex-col gap-3 p-5" aria-label="今天狀態">
+          <div className="flex items-center justify-between">
+            <p className="label">今天狀態</p>
+            <Link to="/recovery" className="flex items-center gap-0.5 text-sm text-chalk-3 hover:text-chalk">
+              恢復紀錄
+              <Icon name="chevronRight" size={16} />
+            </Link>
+          </div>
+          <RecoveryEntry date={today} compact />
         </section>
       </div>
 

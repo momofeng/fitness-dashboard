@@ -88,3 +88,25 @@ export async function expectNoHorizontalOverflow(page: Page, label: string) {
   expect(result.scroll, `${label}: scrollWidth`).toBeLessThanOrEqual(result.vw);
   expect(result.offenders, `${label}: 超出右緣的元素`).toEqual([]);
 }
+
+/** App 的「今天」（台北時間、日切換凌晨 4 點），offset 為往後幾天 */
+export function appDay(offset = 0): string {
+  const now = new Date(Date.now() - 4 * 3600_000);
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const [y, m, d] = parts.split('-').map(Number);
+  const t = new Date(Date.UTC(y!, m! - 1, d! + offset));
+  return t.toISOString().slice(0, 10);
+}
+
+/** 塞一場已完成的訓練（含正式組） */
+export function doneWorkout(id: string, date: string, exerciseId: string, weightKg: number, reps: number[], t: number) {
+  return {
+    workout: {
+      id, date, status: 'done', programId: null, dayId: null, dayName: '全身 A', plan: [], startedAt: t, endedAt: t + 3600_000,
+      restEndsAt: null, notes: '', summary: null, updatedAt: t,
+    },
+    sets: reps.map((r, i) => ({
+      id: `${id}-s${i}`, workoutId: id, date, exerciseId, order: i, kind: 'working', weightKg, reps: r, rir: null, completedAt: t + i * 1000, updatedAt: t,
+    })),
+  };
+}

@@ -266,7 +266,7 @@ function Session({
         footer={
           working.length > 0 ? (
             <Button variant="primary" size="lg" block disabled={busy} onClick={onFinish}>
-              {busy ? '計算中…' : '完成並計算下次重量'}
+              {busy ? '計算中…' : workout.deload ? '完成（減量週不調整重量）' : '完成並計算下次重量'}
             </Button>
           ) : (
             <Button variant="danger" size="lg" block onClick={() => setDiscardOpen(true)}>

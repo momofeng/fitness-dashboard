@@ -5,6 +5,7 @@ import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { ProgramDay } from '../../content/types';
 import { todayKey } from '../../core/dates';
+import { deloadTarget } from '../../core/recovery';
 import { computePrs, type DatedSet } from '../../core/training/strength';
 import { EMPTY_STATE, kgIncrementToLb, lbStepFor, nextProgression, roundingStepFor } from '../../core/training/progression';
 import { fmt, kgToLb, lbToKg } from '../../core/units';
@@ -12,8 +13,9 @@ import { loadExerciseLookup, type AnyExercise } from './exercises';
 import { db, newId } from '../db';
 import { clampTo } from '../limits';
 import { barKgFor, smallestPlateKg, smallestPlateLb } from '../defaults';
-import type { PlanItem, Program, Workout, WorkoutSet } from '../schemas';
+import type { PlanItem, Program, Settings, Workout, WorkoutSet } from '../schemas';
 import { latestWeightKg } from './body';
+import { isDeloadActive } from './recovery';
 import { getSettings } from './settings';
 
 type Lookup = (id: string) => AnyExercise | undefined;
@@ -66,6 +68,44 @@ export async function planItemFor(
   };
 }
 
+/** 重量級距：磅制用 lb 級距（數值是 lb），公斤用器材級距 */
+function unitStep(ex: AnyExercise | undefined, settings: Settings): number {
+  const lb = settings.units.weight === 'lb';
+  if (!ex) return lb ? 5 : 2.5;
+  return lb
+    ? lbStepFor(ex.equipment, smallestPlateLb(settings))
+    : roundingStepFor(ex.equipment, {
+        smallestPlateKg: smallestPlateKg(settings),
+        dumbbellStepKg: settings.equipment.dumbbellStepKg,
+        machineStepKg: settings.equipment.machineStepKg,
+      });
+}
+
+/**
+ * 減量週的計畫：組數 × deloadSetsPct%、重量 × deloadWeightPct%（往下對齊級距，不低於空槓）。
+ * 輔助型動作（數字越小越難）與徒手動作只減組數。
+ */
+export function deloadPlanItem(item: PlanItem, ex: AnyExercise | undefined, settings: Settings): PlanItem {
+  const lb = settings.units.weight === 'lb';
+  const toU = (kg: number) => (lb ? kgToLb(kg) : kg);
+  const fromU = (v: number) => (lb ? lbToKg(v) : v);
+  const keepWeight = !ex || ex.loadType === 'assisted' || ex.loadType === 'bodyweight';
+  const r = deloadTarget(
+    item.sets,
+    item.targetWeightKg == null || keepWeight ? null : toU(item.targetWeightKg),
+    settings.recovery.deloadSetsPct,
+    settings.recovery.deloadWeightPct,
+    unitStep(ex, settings),
+  );
+  let target = item.targetWeightKg;
+  if (r.weight != null && ex) {
+    const isBar = ex.equipment === 'barbell' || ex.equipment === 'smith' || ex.equipment === 'ezbar';
+    const barU = lb && ex.equipment !== 'ezbar' ? settings.equipment.barLb : toU(barKgFor(settings, ex.equipment));
+    target = fromU(isBar ? Math.max(barU, r.weight) : r.weight);
+  }
+  return { ...item, sets: r.sets, targetWeightKg: target };
+}
+
 export async function startWorkout(opts: { program?: Program; dayIndex?: number; date?: string }): Promise<string> {
   const settings = await getSettings();
   const get = await loadExerciseLookup();
@@ -73,11 +113,14 @@ export async function startWorkout(opts: { program?: Program; dayIndex?: number;
   if (existing) return existing.id;
   let day: ProgramDay | undefined;
   if (opts.program) day = opts.program.days[opts.dayIndex ?? opts.program.nextDayIndex % opts.program.days.length];
-  const plan = day ? await Promise.all(day.slots.map((s) => planItemFor(s, get))) : [];
+  const date = opts.date ?? todayKey(settings.dayCutoffHour);
+  const deload = isDeloadActive(settings.recovery.deloadUntil, date);
+  const base = day ? await Promise.all(day.slots.map((s) => planItemFor(s, get))) : [];
+  const plan = deload ? base.map((p) => deloadPlanItem(p, get(p.exerciseId), settings)) : base;
   const now = Date.now();
   const w: Workout = {
     id: newId(),
-    date: opts.date ?? todayKey(settings.dayCutoffHour),
+    date,
     status: 'active',
     programId: opts.program?.id ?? null,
     dayId: day?.id ?? null,
@@ -88,6 +131,7 @@ export async function startWorkout(opts: { program?: Program; dayIndex?: number;
     restEndsAt: null,
     notes: '',
     summary: null,
+    ...(deload ? { deload: true } : {}),
     updatedAt: now,
   };
   await db.workouts.put(w);
@@ -99,10 +143,12 @@ export async function addExerciseToWorkout(workoutId: string, exerciseId: string
   const ex = get(exerciseId);
   const [lo, hi] = ex?.defaultRepRange ?? [8, 12];
   const item = await planItemFor({ exerciseId, sets: 3, repMin: lo, repMax: hi, restSec: defaultRestSec, progression: 'double' }, get);
+  const settings = await getSettings();
   await db.transaction('rw', db.workouts, async () => {
     const w = await db.workouts.get(workoutId);
     if (!w) return;
-    await db.workouts.update(workoutId, { plan: [...w.plan, item], updatedAt: Date.now() });
+    const next = w.deload ? deloadPlanItem(item, ex, settings) : item;
+    await db.workouts.update(workoutId, { plan: [...w.plan, next], updatedAt: Date.now() });
   });
 }
 
@@ -277,6 +323,13 @@ export async function finishWorkout(workoutId: string): Promise<FinishResult> {
     for (const item of w.plan) {
       if (seen.has(item.exerciseId)) continue;
       seen.add(item.exerciseId);
+      // 減量週：不套用進步規則，減量結束後照原本的重量繼續
+      if (w.deload) {
+        if (sets.some((s) => s.exerciseId === item.exerciseId && s.kind === 'working')) {
+          result.messages.push({ exerciseId: item.exerciseId, text: '減量週：這場不調整重量，減量結束後回到原本的重量。' });
+        }
+        continue;
+      }
       const ex = get(item.exerciseId);
       const working = sets.filter((s) => s.exerciseId === item.exerciseId && s.kind === 'working');
       if (!working.length || item.progression === 'none' || !ex) continue;
