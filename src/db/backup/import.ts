@@ -19,7 +19,12 @@ export type ParseResult =
 
 const MAX_ISSUES = 20;
 
-export function parseBackup(text: string, byteLength = new Blob([text]).size): ParseResult {
+export interface ParseOptions {
+  /** ZIP 裡有原圖的照片 id；JSON 匯入時不給 */
+  photoIds?: Set<string>;
+}
+
+export function parseBackup(text: string, byteLength = new Blob([text]).size, opts: ParseOptions = {}): ParseResult {
   const fail = (msg: string, issues: ImportIssue[] = []): ParseResult => ({ ok: false, errors: [msg], issues });
   if (byteLength > MAX_BACKUP_BYTES) return fail(`檔案超過 ${MAX_BACKUP_BYTES / 1024 / 1024} MB 上限。`);
 
@@ -37,6 +42,9 @@ export function parseBackup(text: string, byteLength = new Blob([text]).size): P
   if (version > SCHEMA_VERSION) return fail(`備份檔版本 v${version} 比 App 新（v${SCHEMA_VERSION}），請先更新 App。`);
   if (!env.tables || typeof env.tables !== 'object' || Array.isArray(env.tables)) return fail('備份檔缺少資料表。');
 
+  const includesPhotos = env.includesPhotos === true;
+  if (includesPhotos && !opts.photoIds) return fail('這份資料含進度照，請改選 ZIP 完整備份檔。');
+
   let tables = env.tables as RawTables;
   for (const [name, rows] of Object.entries(tables)) {
     if (!Array.isArray(rows)) return fail(`資料表「${name}」格式錯誤。`);
@@ -52,7 +60,8 @@ export function parseBackup(text: string, byteLength = new Blob([text]).size): P
   const counts = {} as Record<BackupTable, number>;
   for (const t of BACKUP_TABLES) {
     const spec = BACKUP_SPECS[t];
-    const rows = tables[t] ?? [];
+    // JSON 備份不含照片：不讀 photos 表，匯入時也不會動手機上的照片
+    const rows = t === 'photos' && !includesPhotos ? [] : (tables[t] ?? []);
     const parsed: unknown[] = [];
     const seen = new Set<unknown>();
     rows.forEach((row, index) => {
@@ -71,6 +80,10 @@ export function parseBackup(text: string, byteLength = new Blob([text]).size): P
         return;
       }
       seen.add(key);
+      if (t === 'photos' && !opts.photoIds?.has(key as string)) {
+        if (issues.length < MAX_ISSUES) issues.push({ table: t, index, path: 'id', message: 'ZIP 裡找不到這張照片的原圖' });
+        return;
+      }
       parsed.push(r.data);
     });
     out[t] = parsed;
@@ -88,7 +101,7 @@ export function parseBackup(text: string, byteLength = new Blob([text]).size): P
       schemaVersion: SCHEMA_VERSION,
       appVersion: typeof env.appVersion === 'string' ? env.appVersion : '',
       exportedAt: typeof env.exportedAt === 'number' ? env.exportedAt : 0,
-      includesPhotos: false,
+      includesPhotos,
       tables: out,
     },
     counts,

@@ -127,3 +127,87 @@ export interface ProgramTemplate {
   /** 依序輪替的訓練日，例如 A/B 交替 */
   days: ProgramDay[];
 }
+
+// ---------- Round 2 列舉（core 與 db 共用） ----------
+
+/** 痠痛部位：比肌群粗，新手比較好選 */
+export const SORE_AREAS = ['chest', 'shoulders', 'upperBack', 'arms', 'abs', 'lowerBack', 'glutes', 'quads', 'hamstrings', 'calves'] as const;
+export type SoreArea = (typeof SORE_AREAS)[number];
+export const SORE_AREA_LABEL: Record<SoreArea, string> = {
+  chest: '胸',
+  shoulders: '肩',
+  upperBack: '上背',
+  arms: '手臂',
+  abs: '腹',
+  lowerBack: '下背',
+  glutes: '臀',
+  quads: '大腿前側',
+  hamstrings: '大腿後側',
+  calves: '小腿',
+};
+
+export const GOAL_TYPES = ['bodyweight', 'lift', 'bodyFat', 'circ', 'custom'] as const;
+export type GoalKind = (typeof GOAL_TYPES)[number];
+export const GOAL_TYPE_LABEL: Record<GoalKind, string> = {
+  bodyweight: '體重',
+  lift: '動作重量',
+  bodyFat: '體脂率',
+  circ: '圍度',
+  custom: '自訂',
+};
+
+/** 習慣的判定方式：manual 手動打卡，其他由當天資料自動判定 */
+export const HABIT_RULES = ['manual', 'weighIn', 'protein', 'water', 'sleep', 'workout', 'logFood', 'supplement'] as const;
+export type HabitRule = (typeof HABIT_RULES)[number];
+export const HABIT_RULE_LABEL: Record<HabitRule, string> = {
+  manual: '手動打卡',
+  weighIn: '量體重',
+  protein: '蛋白質達標',
+  water: '喝水達標',
+  sleep: '睡滿目標時數',
+  workout: '完成一場訓練',
+  logFood: '記錄飲食',
+  supplement: '補給品打卡',
+};
+
+export const PRODUCT_KINDS = ['supplement', 'gear'] as const;
+export type ProductKind = (typeof PRODUCT_KINDS)[number];
+
+export const SUPPLEMENT_CATEGORIES = ['protein', 'creatine', 'caffeine', 'vitamin', 'omega3', 'other'] as const;
+export const GEAR_CATEGORIES = ['belt', 'shoes', 'straps', 'wraps', 'sleeves', 'gloves', 'chalk', 'band', 'gearOther'] as const;
+export const PRODUCT_CATEGORIES = [...SUPPLEMENT_CATEGORIES, ...GEAR_CATEGORIES] as const;
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+export const PRODUCT_CATEGORY_LABEL: Record<ProductCategory, string> = {
+  protein: '蛋白粉',
+  creatine: '肌酸',
+  caffeine: '咖啡因',
+  vitamin: '維生素／礦物質',
+  omega3: '魚油',
+  other: '其他補給品',
+  belt: '舉重腰帶',
+  shoes: '訓練鞋',
+  straps: '助握帶',
+  wraps: '護腕／綁帶',
+  sleeves: '護膝',
+  gloves: '手套',
+  chalk: '止滑粉',
+  band: '彈力帶',
+  gearOther: '其他裝備',
+};
+
+export const PRODUCT_STATUSES = ['using', 'candidate', 'finished'] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
+  using: '使用中',
+  candidate: '考慮中',
+  finished: '已用完',
+};
+
+export const PHOTO_POSES = ['front', 'side', 'back', 'other'] as const;
+export type PhotoPose = (typeof PHOTO_POSES)[number];
+export const PHOTO_POSE_LABEL: Record<PhotoPose, string> = {
+  front: '正面',
+  side: '側面',
+  back: '背面',
+  other: '其他',
+};

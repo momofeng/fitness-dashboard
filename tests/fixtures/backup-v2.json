@@ -1,0 +1,754 @@
+{
+  "app": "fitness-dashboard",
+  "schemaVersion": 2,
+  "appVersion": "0.2.0",
+  "exportedAt": 1790812800000,
+  "includesPhotos": false,
+  "tables": {
+    "settings": [
+      {
+        "id": "app",
+        "onboarded": true,
+        "disclaimerAcceptedAt": 1790812800000,
+        "profile": {
+          "name": "測試",
+          "sex": "male",
+          "birthYear": 1996,
+          "heightCm": 175,
+          "activity": 1.55,
+          "experience": "novice"
+        },
+        "units": {
+          "weight": "kg"
+        },
+        "theme": "dark",
+        "nutrition": {
+          "mode": "rate",
+          "weeklyGainPct": 0.3,
+          "surplusKcal": 300,
+          "proteinPerKg": 1.8,
+          "fatPct": 25,
+          "fatMinPerKg": 0.6,
+          "waterTargetMl": 3000,
+          "tdeeOverride": 2550,
+          "tdeeAppliedAt": 1792540800000
+        },
+        "training": {
+          "e1rmFormula": "epley",
+          "useRir": false,
+          "failsBeforeDeload": 3,
+          "doubleFailsBeforeDeload": 2,
+          "deloadFactor": 0.9,
+          "stallSessions": 3,
+          "stallMinDays": 14,
+          "volumeMin": 10,
+          "volumeMax": 20,
+          "defaultRestSec": 120,
+          "keepAwake": true,
+          "sound": true,
+          "vibrate": true,
+          "stallThresholdPct": 1.5,
+          "warmup": {
+            "barReps": 8,
+            "steps": [
+              {
+                "pct": 50,
+                "reps": 5
+              },
+              {
+                "pct": 75,
+                "reps": 3
+              }
+            ]
+          }
+        },
+        "equipment": {
+          "barKg": 20,
+          "plates": [
+            {
+              "kg": 20,
+              "pairs": 4
+            },
+            {
+              "kg": 10,
+              "pairs": 2
+            },
+            {
+              "kg": 5,
+              "pairs": 2
+            },
+            {
+              "kg": 2.5,
+              "pairs": 2
+            },
+            {
+              "kg": 1.25,
+              "pairs": 2
+            }
+          ],
+          "dumbbellStepKg": 2,
+          "machineStepKg": 2.5,
+          "ezBarKg": 8,
+          "barLb": 45,
+          "platesLb": [
+            {
+              "lb": 45,
+              "pairs": 4
+            },
+            {
+              "lb": 25,
+              "pairs": 2
+            },
+            {
+              "lb": 10,
+              "pairs": 2
+            },
+            {
+              "lb": 5,
+              "pairs": 2
+            },
+            {
+              "lb": 2.5,
+              "pairs": 2
+            }
+          ]
+        },
+        "recovery": {
+          "lowSleepH": 6,
+          "lowEnergy": 2,
+          "deloadUntil": null,
+          "deloadSetsPct": 60,
+          "deloadWeightPct": 90
+        },
+        "dayCutoffHour": 4,
+        "weekStart": 1,
+        "backup": {
+          "lastExportAt": null,
+          "remindDays": 7,
+          "lastFullExportAt": null
+        },
+        "ai": {
+          "enabled": false,
+          "provider": null,
+          "model": null
+        },
+        "updatedAt": 1790812800000
+      }
+    ],
+    "bodyMetrics": [
+      {
+        "id": "body:2026-10-01",
+        "date": "2026-10-01",
+        "weightKg": 70,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "body:2026-10-02",
+        "date": "2026-10-02",
+        "weightKg": 70.03,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800001
+      },
+      {
+        "id": "body:2026-10-03",
+        "date": "2026-10-03",
+        "weightKg": 70.06,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800002
+      },
+      {
+        "id": "body:2026-10-04",
+        "date": "2026-10-04",
+        "weightKg": 70.09,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800003
+      },
+      {
+        "id": "body:2026-10-05",
+        "date": "2026-10-05",
+        "weightKg": 70.12,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800004
+      },
+      {
+        "id": "body:2026-10-06",
+        "date": "2026-10-06",
+        "weightKg": 70.15,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800005
+      },
+      {
+        "id": "body:2026-10-07",
+        "date": "2026-10-07",
+        "weightKg": 70.18,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800006
+      },
+      {
+        "id": "body:2026-10-08",
+        "date": "2026-10-08",
+        "weightKg": 70.21,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800007
+      },
+      {
+        "id": "body:2026-10-09",
+        "date": "2026-10-09",
+        "weightKg": 70.24,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800008
+      },
+      {
+        "id": "body:2026-10-10",
+        "date": "2026-10-10",
+        "weightKg": 70.27,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800009
+      },
+      {
+        "id": "body:2026-10-11",
+        "date": "2026-10-11",
+        "weightKg": 70.3,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800010
+      },
+      {
+        "id": "body:2026-10-12",
+        "date": "2026-10-12",
+        "weightKg": 70.33,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800011
+      },
+      {
+        "id": "body:2026-10-13",
+        "date": "2026-10-13",
+        "weightKg": 70.36,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800012
+      },
+      {
+        "id": "body:2026-10-14",
+        "date": "2026-10-14",
+        "weightKg": 70.39,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800013
+      },
+      {
+        "id": "body:2026-10-15",
+        "date": "2026-10-15",
+        "weightKg": 70.42,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800014
+      },
+      {
+        "id": "body:2026-10-16",
+        "date": "2026-10-16",
+        "weightKg": 70.45,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800015
+      },
+      {
+        "id": "body:2026-10-17",
+        "date": "2026-10-17",
+        "weightKg": 70.48,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800016
+      },
+      {
+        "id": "body:2026-10-18",
+        "date": "2026-10-18",
+        "weightKg": 70.51,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800017
+      },
+      {
+        "id": "body:2026-10-19",
+        "date": "2026-10-19",
+        "weightKg": 70.54,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800018
+      },
+      {
+        "id": "body:2026-10-20",
+        "date": "2026-10-20",
+        "weightKg": 70.57,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800019
+      },
+      {
+        "id": "body:2026-10-21",
+        "date": "2026-10-21",
+        "weightKg": 70.6,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800020
+      }
+    ],
+    "workouts": [
+      {
+        "id": "fx-w1",
+        "date": "2026-10-03",
+        "status": "done",
+        "programId": null,
+        "dayId": null,
+        "dayName": "全身 A",
+        "plan": [],
+        "startedAt": 1790812800000,
+        "endedAt": 1790816400000,
+        "restEndsAt": null,
+        "notes": "",
+        "summary": null,
+        "deload": false,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "sets": [
+      {
+        "id": "fx-s0",
+        "workoutId": "fx-w1",
+        "date": "2026-10-03",
+        "exerciseId": "barbell-back-squat",
+        "order": 0,
+        "kind": "working",
+        "weightKg": 60,
+        "reps": 5,
+        "rir": null,
+        "completedAt": 1790812800000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-s1",
+        "workoutId": "fx-w1",
+        "date": "2026-10-03",
+        "exerciseId": "barbell-back-squat",
+        "order": 1,
+        "kind": "working",
+        "weightKg": 60,
+        "reps": 5,
+        "rir": null,
+        "completedAt": 1790812980000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-s2",
+        "workoutId": "fx-w1",
+        "date": "2026-10-03",
+        "exerciseId": "barbell-back-squat",
+        "order": 2,
+        "kind": "working",
+        "weightKg": 60,
+        "reps": 5,
+        "rir": null,
+        "completedAt": 1790813160000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-s3",
+        "workoutId": "fx-w1",
+        "date": "2026-10-03",
+        "exerciseId": "barbell-back-squat",
+        "order": 3,
+        "kind": "drop",
+        "weightKg": 47.5,
+        "reps": 8,
+        "rir": null,
+        "completedAt": 1790813340000,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "dailyLogs": [
+      {
+        "date": "2026-10-01",
+        "waterMl": 2500,
+        "sleepHours": 7,
+        "energy": 3,
+        "soreness": [
+          "quads",
+          "glutes"
+        ],
+        "updatedAt": 1790812800000
+      },
+      {
+        "date": "2026-10-02",
+        "waterMl": 2500,
+        "sleepHours": 6.5,
+        "energy": 4,
+        "updatedAt": 1790812800001
+      },
+      {
+        "date": "2026-10-03",
+        "waterMl": 2500,
+        "sleepHours": 6,
+        "energy": 3,
+        "updatedAt": 1790812800002
+      },
+      {
+        "date": "2026-10-04",
+        "waterMl": 2500,
+        "sleepHours": 7,
+        "energy": 4,
+        "intakeComplete": false,
+        "updatedAt": 1790812800003
+      },
+      {
+        "date": "2026-10-05",
+        "waterMl": 2500,
+        "sleepHours": 6.5,
+        "energy": 3,
+        "updatedAt": 1790812800004
+      },
+      {
+        "date": "2026-10-06",
+        "waterMl": 2500,
+        "sleepHours": 6,
+        "energy": 4,
+        "soreness": [
+          "quads",
+          "glutes"
+        ],
+        "updatedAt": 1790812800005
+      },
+      {
+        "date": "2026-10-07",
+        "waterMl": 2500,
+        "sleepHours": 7,
+        "energy": 3,
+        "updatedAt": 1790812800006
+      },
+      {
+        "date": "2026-10-08",
+        "waterMl": 2500,
+        "sleepHours": 6.5,
+        "energy": 4,
+        "updatedAt": 1790812800007
+      },
+      {
+        "date": "2026-10-09",
+        "waterMl": 2500,
+        "sleepHours": 6,
+        "energy": 3,
+        "updatedAt": 1790812800008
+      },
+      {
+        "date": "2026-10-10",
+        "waterMl": 2500,
+        "sleepHours": 7,
+        "energy": 4,
+        "updatedAt": 1790812800009
+      },
+      {
+        "date": "2026-10-11",
+        "waterMl": 2500,
+        "sleepHours": 6.5,
+        "energy": 3,
+        "soreness": [
+          "quads",
+          "glutes"
+        ],
+        "updatedAt": 1790812800010
+      },
+      {
+        "date": "2026-10-12",
+        "waterMl": 2500,
+        "sleepHours": 6,
+        "energy": 4,
+        "updatedAt": 1790812800011
+      },
+      {
+        "date": "2026-10-13",
+        "waterMl": 2500,
+        "sleepHours": 7,
+        "energy": 3,
+        "updatedAt": 1790812800012
+      },
+      {
+        "date": "2026-10-14",
+        "waterMl": 2500,
+        "sleepHours": 6.5,
+        "energy": 4,
+        "updatedAt": 1790812800013
+      },
+      {
+        "date": "2026-10-15",
+        "waterMl": 2500,
+        "sleepHours": 6,
+        "energy": 3,
+        "updatedAt": 1790812800014
+      },
+      {
+        "date": "2026-10-16",
+        "waterMl": 2500,
+        "sleepHours": 7,
+        "energy": 4,
+        "soreness": [
+          "quads",
+          "glutes"
+        ],
+        "updatedAt": 1790812800015
+      },
+      {
+        "date": "2026-10-17",
+        "waterMl": 2500,
+        "sleepHours": 6.5,
+        "energy": 3,
+        "updatedAt": 1790812800016
+      },
+      {
+        "date": "2026-10-18",
+        "waterMl": 2500,
+        "sleepHours": 6,
+        "energy": 4,
+        "updatedAt": 1790812800017
+      },
+      {
+        "date": "2026-10-19",
+        "waterMl": 2500,
+        "sleepHours": 7,
+        "energy": 3,
+        "updatedAt": 1790812800018
+      },
+      {
+        "date": "2026-10-20",
+        "waterMl": 2500,
+        "sleepHours": 6.5,
+        "energy": 4,
+        "updatedAt": 1790812800019
+      },
+      {
+        "date": "2026-10-21",
+        "waterMl": 2500,
+        "sleepHours": 6,
+        "energy": 3,
+        "soreness": [
+          "quads",
+          "glutes"
+        ],
+        "updatedAt": 1790812800020
+      }
+    ],
+    "exercisePrefs": [
+      {
+        "exerciseId": "dumbbell-curl",
+        "note": "",
+        "repMin": 10,
+        "repMax": 15,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "exercisesCustom": [
+      {
+        "id": "fx-ex1",
+        "nameZh": "測試划船",
+        "aliases": [],
+        "nameEn": "Test Row",
+        "primary": [
+          "upperBack",
+          "lats"
+        ],
+        "secondary": [
+          "biceps"
+        ],
+        "equipment": "machine",
+        "category": "compound",
+        "loadType": "external",
+        "defaultIncrementKg": 2.5,
+        "defaultRepRange": [
+          8,
+          12
+        ],
+        "cues": "",
+        "updatedAt": 1790812800000
+      }
+    ],
+    "foodUsage": [
+      {
+        "foodKey": "custom:fx-f1",
+        "name": "測試優格",
+        "count": 5,
+        "lastUsedAt": 1790812800000,
+        "lastQty": 1,
+        "lastUnit": "serving"
+      }
+    ],
+    "products": [
+      {
+        "id": "fx-p1",
+        "kind": "supplement",
+        "name": "乳清蛋白 2 磅",
+        "brand": "",
+        "category": "protein",
+        "status": "using",
+        "price": 1200,
+        "servingsPerContainer": 30,
+        "servingLabel": "1 匙 30 g",
+        "proteinPerServingG": 24,
+        "dailyServings": 1,
+        "containersBought": 1,
+        "adjustServings": -2,
+        "remindDays": 7,
+        "purchasedAt": "2026-10-01",
+        "note": "",
+        "createdAt": 1790812800000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-p2",
+        "kind": "gear",
+        "name": "舉重腰帶",
+        "brand": "",
+        "category": "belt",
+        "status": "using",
+        "price": 1500,
+        "servingsPerContainer": null,
+        "servingLabel": "",
+        "proteinPerServingG": null,
+        "dailyServings": null,
+        "containersBought": 1,
+        "adjustServings": 0,
+        "remindDays": 0,
+        "purchasedAt": "2026-10-01",
+        "note": "10 mm",
+        "createdAt": 1790812800000,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "supplementLogs": [
+      {
+        "id": "fx-p1:2026-10-01",
+        "productId": "fx-p1",
+        "date": "2026-10-01",
+        "servings": 1,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-p1:2026-10-02",
+        "productId": "fx-p1",
+        "date": "2026-10-02",
+        "servings": 1,
+        "updatedAt": 1790812800001
+      },
+      {
+        "id": "fx-p1:2026-10-03",
+        "productId": "fx-p1",
+        "date": "2026-10-03",
+        "servings": 1,
+        "updatedAt": 1790812800002
+      }
+    ],
+    "goals": [
+      {
+        "id": "fx-g1",
+        "type": "lift",
+        "title": "深蹲 100 kg × 5",
+        "exerciseId": "barbell-back-squat",
+        "targetReps": 5,
+        "circ": null,
+        "unit": "",
+        "startValue": 60,
+        "targetValue": 100,
+        "current": null,
+        "dueDate": "2026-12-30",
+        "status": "active",
+        "doneAt": null,
+        "createdAt": 1790812800000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-g2",
+        "type": "bodyweight",
+        "title": "體重 75 kg",
+        "exerciseId": null,
+        "targetReps": null,
+        "circ": null,
+        "unit": "",
+        "startValue": 70,
+        "targetValue": 75,
+        "current": null,
+        "dueDate": null,
+        "status": "active",
+        "doneAt": null,
+        "createdAt": 1790812800000,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "habits": [
+      {
+        "id": "fx-h1",
+        "name": "睡前伸展",
+        "rule": "manual",
+        "perWeek": 5,
+        "archived": false,
+        "order": 0,
+        "createdAt": 1790812800000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-h2",
+        "name": "每天量體重",
+        "rule": "weighIn",
+        "perWeek": 7,
+        "archived": false,
+        "order": 1,
+        "createdAt": 1790812800000,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "habitLogs": [
+      {
+        "id": "fx-h1:2026-10-01",
+        "habitId": "fx-h1",
+        "date": "2026-10-01",
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-h1:2026-10-02",
+        "habitId": "fx-h1",
+        "date": "2026-10-02",
+        "updatedAt": 1790812800001
+      }
+    ],
+    "photos": []
+  }
+}

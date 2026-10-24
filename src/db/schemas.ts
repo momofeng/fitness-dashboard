@@ -2,15 +2,30 @@
 // 慣例：一律存 kg / cm / kcal / ml；日期為本地 'YYYY-MM-DD'；每筆都有 updatedAt（毫秒）。
 
 import { z } from 'zod';
-import { EQUIPMENT, LOAD_TYPES, MUSCLES } from '../content/types';
+import {
+  EQUIPMENT,
+  GOAL_TYPES,
+  HABIT_RULES,
+  LOAD_TYPES,
+  MUSCLES,
+  PHOTO_POSES,
+  PRODUCT_CATEGORIES,
+  PRODUCT_KINDS,
+  PRODUCT_STATUSES,
+  SORE_AREAS,
+  SUPPLEMENT_CATEGORIES,
+} from '../content/types';
 import { isDateKey } from '../core/dates';
-import { LIMITS } from './limits';
+import { goalValueRange, LIMITS, PHOTO, type LimitKey } from './limits';
 
 const dateKey = z.string().refine(isDateKey, { message: '日期格式須為 YYYY-MM-DD' });
 const id = z.string().min(1).max(100);
 const ts = z.number().int().nonnegative();
 const kg = z.number().min(0).max(1000);
 const nonneg = z.number().min(0);
+/** 依 LIMITS 的範圍建立數字 schema */
+const lim = (key: LimitKey) => z.number().min(LIMITS[key][0]).max(LIMITS[key][1]);
+const limInt = (key: LimitKey) => z.number().int().min(LIMITS[key][0]).max(LIMITS[key][1]);
 
 // ---------- 設定 ----------
 
@@ -36,6 +51,9 @@ export const settingsSchema = z.object({
     fatPct: z.number().min(10).max(50),
     fatMinPerKg: z.number().min(0.3).max(2),
     waterTargetMl: z.number().min(0).max(10000),
+    /** 自適應 TDEE 套用後的值；null = 用公式（BMR × 活動係數） */
+    tdeeOverride: lim('tdeeKcal').nullable(),
+    tdeeAppliedAt: ts.nullable(),
   }),
   training: z.object({
     e1rmFormula: z.enum(['epley', 'brzycki']),
@@ -51,16 +69,41 @@ export const settingsSchema = z.object({
     keepAwake: z.boolean(),
     sound: z.boolean(),
     vibrate: z.boolean(),
+    stallThresholdPct: lim('stallThresholdPct'),
+    warmup: z.object({
+      /** 空槓組的次數；0 = 不做空槓組 */
+      barReps: limInt('warmupBarReps'),
+      steps: z.array(z.object({ pct: lim('warmupPct'), reps: limInt('warmupReps') })).max(LIMITS.warmupSteps[1]),
+    }),
   }),
   equipment: z.object({
     barKg: kg,
     plates: z.array(z.object({ kg: z.number().positive().max(50), pairs: z.number().int().min(0).max(20) })),
     dumbbellStepKg: z.number().positive().max(10),
     machineStepKg: z.number().positive().max(20),
+    ezBarKg: lim('ezBarKg'),
+    /** 磅制使用者的槓重與槓片 */
+    barLb: lim('barLb'),
+    platesLb: z.array(z.object({ lb: lim('plateLb'), pairs: limInt('platePairs') })),
+  }),
+  recovery: z.object({
+    /** 近 7 天平均睡眠低於這個時數算恢復不足 */
+    lowSleepH: lim('lowSleepH'),
+    /** 近 7 天平均精力不高於這個值算恢復不足 */
+    lowEnergy: lim('lowEnergy'),
+    /** 減量週到哪一天（含）；null = 沒有進行中的減量週 */
+    deloadUntil: dateKey.nullable(),
+    deloadSetsPct: limInt('deloadSetsPct'),
+    deloadWeightPct: lim('deloadWeightPct'),
   }),
   dayCutoffHour: z.number().int().min(0).max(6),
   weekStart: z.union([z.literal(0), z.literal(1)]),
-  backup: z.object({ lastExportAt: ts.nullable(), remindDays: z.number().int().min(0).max(90) }),
+  backup: z.object({
+    lastExportAt: ts.nullable(),
+    remindDays: z.number().int().min(0).max(90),
+    /** 上次 ZIP 完整備份（含進度照） */
+    lastFullExportAt: ts.nullable(),
+  }),
   ai: z.object({ enabled: z.boolean(), provider: z.string().nullable(), model: z.string().nullable() }),
   updatedAt: ts,
 });
@@ -90,8 +133,11 @@ export const exercisePrefSchema = z.object({
   note: z.string().max(500).optional(),
   restSec: z.number().int().min(0).max(900).optional(),
   incrementKg: z.number().min(0).max(20).optional(),
+  /** 覆寫課表的次數區間（兩個都有才生效） */
+  repMin: z.number().int().min(1).max(100).optional(),
+  repMax: z.number().int().min(1).max(100).optional(),
   updatedAt: ts,
-});
+}).refine((p) => p.repMin == null || p.repMax == null || p.repMin <= p.repMax, { message: '次數下限不能大於上限', path: ['repMin'] });
 export type ExercisePref = z.infer<typeof exercisePrefSchema>;
 
 const progressionKind = z.enum(['linear', 'double', 'none']);
@@ -166,6 +212,8 @@ export const workoutSchema = z.object({
   summary: z
     .object({ prs: z.array(z.string()), messages: z.array(z.object({ exerciseId: id, text: z.string() })) })
     .nullable(),
+  /** 減量週的場次：不套用進步規則 */
+  deload: z.boolean().optional(),
   updatedAt: ts,
 });
 export type Workout = z.infer<typeof workoutSchema>;
@@ -282,9 +330,11 @@ export const dailyLogSchema = z.object({
   date: dateKey,
   waterMl: z.number().min(LIMITS.waterMl[0]).max(LIMITS.waterMl[1]),
   // Round 2：恢復模組
-  sleepHours: nonneg.max(24).optional(),
-  energy: z.number().int().min(1).max(5).optional(),
+  sleepHours: lim('sleepH').optional(),
+  energy: limInt('energy').optional(),
+  soreness: z.array(z.enum(SORE_AREAS)).max(SORE_AREAS.length).optional(),
   steps: nonneg.max(200000).optional(),
+  /** 飲食是否記完整（自適應 TDEE 用）；undefined = 依熱量自動判斷 */
   intakeComplete: z.boolean().optional(),
   updatedAt: ts,
 });
@@ -316,12 +366,120 @@ export const bodyMetricSchema = z.object({
 });
 export type BodyMetric = z.infer<typeof bodyMetricSchema>;
 
-// ---------- Round 2 預留（先寬鬆驗證：至少要有主鍵與 updatedAt） ----------
+// ---------- 選品 ----------
 
-const reserved = z.looseObject({ id, updatedAt: ts });
-export const productSchema = reserved;
-export const supplementLogSchema = reserved;
-export const goalSchema = reserved;
-export const habitSchema = reserved;
-export const habitLogSchema = reserved;
-export const photoSchema = reserved;
+export const productSchema = z
+  .object({
+    id,
+    kind: z.enum(PRODUCT_KINDS),
+    name: z.string().min(1).max(60),
+    brand: z.string().max(60),
+    category: z.enum(PRODUCT_CATEGORIES),
+    status: z.enum(PRODUCT_STATUSES),
+    /** 每罐（每件）價格，新台幣 */
+    price: lim('priceTwd').nullable(),
+    servingsPerContainer: lim('servingsPerContainer').nullable(),
+    servingLabel: z.string().max(30),
+    proteinPerServingG: lim('proteinPerServingG').nullable(),
+    dailyServings: lim('dailyServings').nullable(),
+    /** 已買幾罐（補貨一次 +1） */
+    containersBought: limInt('containers'),
+    /** 庫存校正（份），例如開始用 App 前已經吃掉的份數記成負數 */
+    adjustServings: lim('adjustServings'),
+    remindDays: limInt('remindDays'),
+    purchasedAt: dateKey.nullable(),
+    note: z.string().max(500),
+    createdAt: ts,
+    updatedAt: ts,
+  })
+  .refine((p) => (p.kind === 'supplement') === (SUPPLEMENT_CATEGORIES as readonly string[]).includes(p.category), {
+    message: '類別與種類不符',
+    path: ['category'],
+  });
+export type Product = z.infer<typeof productSchema>;
+
+/** 每個產品每天一筆，id = `${productId}:${date}` */
+export const supplementLogSchema = z.object({
+  id,
+  productId: id,
+  date: dateKey,
+  servings: lim('logServings'),
+  updatedAt: ts,
+});
+export type SupplementLog = z.infer<typeof supplementLogSchema>;
+
+// ---------- 目標與習慣 ----------
+
+const inGoalRange = (type: (typeof GOAL_TYPES)[number], v: number | null) => {
+  if (v == null) return true;
+  const [lo, hi] = goalValueRange(type);
+  return Number.isFinite(v) && v >= lo && v <= hi;
+};
+
+export const goalSchema = z
+  .object({
+    id,
+    type: z.enum(GOAL_TYPES),
+    title: z.string().min(1).max(60),
+    /** 動作目標 */
+    exerciseId: id.nullable(),
+    targetReps: limInt('targetReps').nullable(),
+    /** 圍度目標 */
+    circ: z.enum(CIRCUMFERENCES).nullable(),
+    /** 自訂目標的單位 */
+    unit: z.string().max(10),
+    startValue: z.number().nullable(),
+    targetValue: z.number(),
+    /** 自訂目標手動更新的目前值 */
+    current: z.number().nullable(),
+    dueDate: dateKey.nullable(),
+    status: z.enum(['active', 'done', 'archived']),
+    doneAt: ts.nullable(),
+    createdAt: ts,
+    updatedAt: ts,
+  })
+  .superRefine((g, ctx) => {
+    for (const k of ['startValue', 'targetValue', 'current'] as const) {
+      if (!inGoalRange(g.type, g[k])) ctx.addIssue({ code: 'custom', message: '數值超出範圍', path: [k] });
+    }
+    if (g.type === 'lift' && (!g.exerciseId || g.targetReps == null)) ctx.addIssue({ code: 'custom', message: '動作目標需要動作與次數', path: ['exerciseId'] });
+    if (g.type === 'circ' && !g.circ) ctx.addIssue({ code: 'custom', message: '圍度目標需要部位', path: ['circ'] });
+  });
+export type Goal = z.infer<typeof goalSchema>;
+
+export const habitSchema = z.object({
+  id,
+  name: z.string().min(1).max(40),
+  rule: z.enum(HABIT_RULES),
+  perWeek: limInt('habitPerWeek'),
+  archived: z.boolean(),
+  order: z.number().int().min(0),
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type Habit = z.infer<typeof habitSchema>;
+
+/** 手動習慣的打卡，id = `${habitId}:${date}`；有這筆就是完成 */
+export const habitLogSchema = z.object({ id, habitId: id, date: dateKey, updatedAt: ts });
+export type HabitLog = z.infer<typeof habitLogSchema>;
+
+// ---------- 進度照 ----------
+
+/** 縮圖存在這張表（JSON 可序列化）；原圖 Blob 在 photoBlobs，只進 ZIP 備份 */
+export const photoSchema = z.object({
+  /** 會當成 ZIP 裡的檔名，只允許英數、底線、連字號 */
+  id: id.regex(/^[A-Za-z0-9_-]+$/, { message: 'id 只能有英數字、底線或連字號' }),
+  date: dateKey,
+  pose: z.enum(PHOTO_POSES),
+  note: z.string().max(200),
+  width: limInt('photoPx'),
+  height: limInt('photoPx'),
+  bytes: limInt('photoBytes'),
+  thumb: z
+    .string()
+    .max(PHOTO.thumbMaxChars)
+    .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/, { message: '縮圖格式錯誤' }),
+  createdAt: ts,
+  updatedAt: ts,
+});
+export type Photo = z.infer<typeof photoSchema>;

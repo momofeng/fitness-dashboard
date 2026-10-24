@@ -2,7 +2,8 @@
 // 升版規則：只新增表或索引，不改既有表的主鍵；資料轉換寫在 backup/migrate.ts 的純函式，
 // Dexie upgrade 與舊備份匯入共用同一份。
 
-import Dexie, { type EntityTable, type Table } from 'dexie';
+import Dexie, { type EntityTable, type Table, type Transaction } from 'dexie';
+import { MIGRATION_TABLES, MIGRATIONS } from './backup/migrate';
 import type {
   BodyMetric,
   Cardio,
@@ -12,24 +13,23 @@ import type {
   ExercisePref,
   FoodLog,
   FoodUsage,
+  Goal,
+  Habit,
+  HabitLog,
   MealTemplate,
+  Photo,
+  Product,
   Program,
   ProgressionStateRow,
   Settings,
+  SupplementLog,
   Workout,
   WorkoutSet,
 } from './schemas';
 
 /** 資料庫名稱要唯一：同一個 github.io 網域下的其他專案共用 origin */
 export const DB_NAME = 'momofeng-fitness-dashboard';
-export const SCHEMA_VERSION = 1;
-
-/** Round 2 預留表：結構之後再定，先只要求主鍵與 updatedAt */
-export interface ReservedRow {
-  id: string;
-  updatedAt: number;
-  [key: string]: unknown;
-}
+export const SCHEMA_VERSION = 2;
 
 export const STORES_V1 = {
   settings: 'id',
@@ -56,7 +56,33 @@ export const STORES_V1 = {
   photoBlobs: 'id',
 } as const;
 
-export type TableName = keyof typeof STORES_V1;
+/** v2：補 v1 計畫中漏掉的索引，並加上 Round 2 查詢用的索引（只新增索引，不改主鍵） */
+export const STORES_V2 = {
+  ...STORES_V1,
+  exercisesCustom: 'id, nameZh, *primary',
+  foodUsage: 'foodKey, lastUsedAt, count',
+  products: 'id, kind, status',
+  habitLogs: 'id, date, [habitId+date]',
+} as const;
+
+export type TableName = keyof typeof STORES_V2;
+
+export interface PhotoBlob {
+  id: string;
+  blob: Blob;
+}
+
+/** Dexie upgrade：讀出受影響的表，套用與備份匯入相同的遷移函式後寫回 */
+async function upgradeTables(tx: Transaction, from: number) {
+  const names = MIGRATION_TABLES[from] ?? [];
+  const tables: Record<string, unknown[]> = {};
+  for (const n of names) tables[n] = await tx.table(n).toArray();
+  const out = MIGRATIONS[from]!(tables);
+  for (const n of names) {
+    const rows = out[n] ?? [];
+    if (rows.length) await tx.table(n).bulkPut(rows);
+  }
+}
 
 export class FitnessDB extends Dexie {
   settings!: EntityTable<Settings, 'id'>;
@@ -73,17 +99,20 @@ export class FitnessDB extends Dexie {
   foodUsage!: EntityTable<FoodUsage, 'foodKey'>;
   dailyLogs!: EntityTable<DailyLog, 'date'>;
   bodyMetrics!: EntityTable<BodyMetric, 'id'>;
-  products!: EntityTable<ReservedRow, 'id'>;
-  supplementLogs!: EntityTable<ReservedRow, 'id'>;
-  goals!: EntityTable<ReservedRow, 'id'>;
-  habits!: EntityTable<ReservedRow, 'id'>;
-  habitLogs!: EntityTable<ReservedRow, 'id'>;
-  photos!: EntityTable<ReservedRow, 'id'>;
-  photoBlobs!: Table<{ id: string; blob: Blob }, string>;
+  products!: EntityTable<Product, 'id'>;
+  supplementLogs!: EntityTable<SupplementLog, 'id'>;
+  goals!: EntityTable<Goal, 'id'>;
+  habits!: EntityTable<Habit, 'id'>;
+  habitLogs!: EntityTable<HabitLog, 'id'>;
+  photos!: EntityTable<Photo, 'id'>;
+  photoBlobs!: Table<PhotoBlob, string>;
 
   constructor(name = DB_NAME) {
     super(name);
     this.version(1).stores(STORES_V1);
+    this.version(2)
+      .stores(STORES_V2)
+      .upgrade((tx) => upgradeTables(tx, 1));
   }
 }
 
