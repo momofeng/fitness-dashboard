@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { setRestEndsAt } from '../../db/repo/workouts';
 import type { Settings, Workout } from '../../db/schemas';
-import { beep, notify, vibrate } from '../../lib/platform';
+import { beep, notificationPermission, notify, requestNotification, vibrate } from '../../lib/platform';
 import { Icon } from '../../ui/Icon';
 
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
@@ -13,6 +13,7 @@ const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padSta
 export function RestTimer({ workout, settings }: { workout: Workout; settings: Settings }) {
   const endsAt = workout.restEndsAt;
   const [now, setNow] = useState(Date.now());
+  const [perm, setPerm] = useState(notificationPermission());
   const alerted = useRef<number | null>(null);
 
   useEffect(() => {
@@ -82,6 +83,20 @@ export function RestTimer({ workout, settings }: { workout: Workout; settings: S
         <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-iron-3">
           <div className="h-full rounded-full bg-chalk-2 transition-[width] duration-200 ease-linear" style={{ width: `${pct}%` }} />
         </div>
+      )}
+      {!over && (
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-cap text-chalk-4">
+          切到其他 App 時提醒可能延遲，畫面留在這裡最準。
+          {perm === 'default' && (
+            <button
+              type="button"
+              className="text-chalk-3 underline decoration-chalk-4 underline-offset-2"
+              onClick={async () => setPerm(await requestNotification())}
+            >
+              開啟背景通知
+            </button>
+          )}
+        </p>
       )}
     </div>
   );

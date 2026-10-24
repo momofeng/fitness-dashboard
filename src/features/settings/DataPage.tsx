@@ -57,8 +57,8 @@ export default function DataPage() {
           l.protein.toFixed(1),
           l.fat.toFixed(1),
           l.carbs.toFixed(1),
-          l.fiber.toFixed(1),
-          l.sodium.toFixed(0),
+          l.per.fiber == null ? '' : l.fiber.toFixed(1),
+          l.per.sodium == null ? '' : l.sodium.toFixed(0),
         ]),
       );
     } else {

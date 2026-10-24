@@ -1,4 +1,5 @@
 // 漸進超負荷規則：線性進步（新手主項）與雙重進步（輔助動作）。
+// 單位無關：呼叫端可以全用 kg 或全用 lb（重量、加重量、級距、下限同一單位）。
 
 import type { Equipment, ProgressionKind } from '../../content/types';
 import { floorTo, roundTo } from '../units';
@@ -33,6 +34,18 @@ export const DEFAULT_PROGRESSION_PREFS: ProgressionPrefs = {
   deloadFactor: 0.9,
 };
 
+export interface ProgressionOptions {
+  /**
+   * 1：重量越重越難（一般動作）；-1：數字越小越難（輔助引體這類「輔助重量」），
+   * 進步＝減少輔助、減量＝增加輔助
+   */
+  direction?: 1 | -1;
+  /** 減量後的最低重量（例如槓鈴不能低於空槓） */
+  minWeight?: number;
+  /** 顯示用單位 */
+  unit?: string;
+}
+
 export type Outcome = 'increase' | 'hold' | 'fail' | 'deload' | 'skipped' | 'recorded';
 
 export interface ProgressionResult {
@@ -45,9 +58,12 @@ export interface ProgressionResult {
   suggestSwitch: boolean;
 }
 
+const n2 = (v: number) => Number(v.toFixed(2));
+
 /**
  * 依本次正式組表現，算出下次的工作重量。
- * 只看前 target.sets 個正式組；評估重量取其中最輕的一組，避免「最後一組減重」被誤判成加重成功。
+ * 只看前 target.sets 個正式組；評估重量取「最容易」的那一組（一般動作取最輕、輔助動作取輔助最多），
+ * 避免「最後一組減重」被誤判成加重成功。
  */
 export function nextProgression(
   target: SlotTarget,
@@ -55,14 +71,21 @@ export function nextProgression(
   workingSets: Array<{ weightKg: number; reps: number }>,
   prefs: ProgressionPrefs,
   stepKg: number,
+  opts: ProgressionOptions = {},
 ): ProgressionResult {
+  const dir = opts.direction ?? 1;
+  const unit = opts.unit ?? 'kg';
+  const assisted = dir === -1;
   const counted = workingSets.slice(0, target.sets);
   if (counted.length === 0) {
     return { state, outcome: 'skipped', message: '本次沒有正式組，重量維持不變。', nextTargetReps: target.repMin, suggestSwitch: false };
   }
-  const weight = Math.min(...counted.map((s) => s.weightKg));
+  const weights = counted.map((s) => s.weightKg);
+  const weight = assisted ? Math.max(...weights) : Math.min(...weights);
   const complete = counted.length >= target.sets;
   const step = stepKg > 0 ? stepKg : target.incrementKg || 1;
+  const w = (v: number) => `${n2(v)} ${unit}`;
+  const noLoad = target.incrementKg <= 0;
 
   if (target.progression === 'none') {
     return {
@@ -74,36 +97,53 @@ export function nextProgression(
     };
   }
 
+  const harder = (): number => (assisted ? Math.max(0, roundTo(weight - target.incrementKg, step)) : roundTo(weight + target.incrementKg, step));
+
   const deload = (fails: number): ProgressionResult => {
-    const next = Math.max(step, floorTo(weight * prefs.deloadFactor, step));
+    const next = assisted
+      ? roundTo(weight + Math.max(step, weight * (1 - prefs.deloadFactor)), step)
+      : Math.max(opts.minWeight ?? step, floorTo(weight * prefs.deloadFactor, step));
     const deloadCount = state.deloadCount + 1;
     return {
-      state: { workingWeightKg: next, consecutiveFails: 0, deloadCount },
+      state: { workingWeightKg: n2(next), consecutiveFails: 0, deloadCount },
       outcome: 'deload',
-      message: `連續 ${fails} 次未達標，下次減量到 ${next} kg 再往上加。`,
+      message: assisted ? `連續 ${fails} 次未達標，下次輔助加回 ${w(next)} 再慢慢減少。` : `連續 ${fails} 次未達標，下次減量到 ${w(next)} 再往上加。`,
       nextTargetReps: target.repMin,
       suggestSwitch: deloadCount >= 2,
     };
   };
 
+  const increaseMsg = (next: number, tail = '') =>
+    assisted ? `全部達標！下次輔助減到 ${w(next)}${tail}。` : `全部達標！下次加到 ${w(next)}${tail}。`;
+
+  // 純徒手（不加重）：做到上限就提示加難度，不改重量
+  const topOut = (): ProgressionResult => ({
+    state: { ...state, workingWeightKg: weight, consecutiveFails: 0 },
+    outcome: 'hold',
+    message: `每組都做到 ${target.repMax} 下了！下次可以放慢動作、加負重或換更難的變式。`,
+    nextTargetReps: target.repMax,
+    suggestSwitch: false,
+  });
+
   if (target.progression === 'linear') {
     const success = complete && counted.every((s) => s.reps >= target.repMax);
     if (success) {
-      const next = roundTo(weight + target.incrementKg, step);
+      if (noLoad) return topOut();
+      const next = harder();
       return {
-        state: { ...state, workingWeightKg: next, consecutiveFails: 0 },
+        state: { ...state, workingWeightKg: n2(next), consecutiveFails: 0 },
         outcome: 'increase',
-        message: `全部達標！下次加到 ${next} kg。`,
+        message: increaseMsg(next),
         nextTargetReps: target.repMax,
         suggestSwitch: false,
       };
     }
     const fails = state.consecutiveFails + 1;
-    if (fails >= prefs.failsBeforeDeload) return deload(fails);
+    if (fails >= prefs.failsBeforeDeload && !noLoad) return deload(fails);
     return {
       state: { ...state, workingWeightKg: weight, consecutiveFails: fails },
       outcome: 'fail',
-      message: `未全部達標（第 ${fails} 次），下次維持 ${weight} kg 再挑戰。`,
+      message: `未全部達標（第 ${fails} 次），下次維持 ${w(weight)} 再挑戰。`,
       nextTargetReps: target.repMax,
       suggestSwitch: false,
     };
@@ -112,11 +152,12 @@ export function nextProgression(
   // 雙重進步
   const allAtTop = complete && counted.every((s) => s.reps >= target.repMax);
   if (allAtTop) {
-    const next = roundTo(weight + target.incrementKg, step);
+    if (noLoad) return topOut();
+    const next = harder();
     return {
-      state: { ...state, workingWeightKg: next, consecutiveFails: 0 },
+      state: { ...state, workingWeightKg: n2(next), consecutiveFails: 0 },
       outcome: 'increase',
-      message: `每組都做到 ${target.repMax} 下，下次加到 ${next} kg，次數回到 ${target.repMin} 下。`,
+      message: increaseMsg(next, `，次數回到 ${target.repMin} 下`),
       nextTargetReps: target.repMin,
       suggestSwitch: false,
     };
@@ -126,17 +167,17 @@ export function nextProgression(
     return {
       state: { ...state, workingWeightKg: weight, consecutiveFails: 0 },
       outcome: 'hold',
-      message: `維持 ${weight} kg，目標把每組做到 ${target.repMax} 下。`,
+      message: noLoad ? `目標把每組做到 ${target.repMax} 下。` : `維持 ${w(weight)}，目標把每組做到 ${target.repMax} 下。`,
       nextTargetReps: Math.min(target.repMax, Math.min(...counted.map((s) => s.reps)) + 1),
       suggestSwitch: false,
     };
   }
   const fails = state.consecutiveFails + 1;
-  if (fails >= prefs.doubleFailsBeforeDeload) return deload(fails);
+  if (fails >= prefs.doubleFailsBeforeDeload && !noLoad) return deload(fails);
   return {
     state: { ...state, workingWeightKg: weight, consecutiveFails: fails },
     outcome: 'fail',
-    message: `有組數低於 ${target.repMin} 下，下次維持 ${weight} kg。`,
+    message: noLoad ? `有組數低於 ${target.repMin} 下，下次再挑戰。` : `有組數低於 ${target.repMin} 下，下次維持 ${w(weight)}。`,
     nextTargetReps: target.repMin,
     suggestSwitch: false,
   };
@@ -165,6 +206,16 @@ export function roundingStepFor(equipment: Equipment, prefs: RoundingPrefs): num
     default:
       return prefs.smallestPlateKg;
   }
+}
+
+/** 磅制：以常見的 lb 槓片／啞鈴級距計算，並把公斤的加重量換成整齊的磅數 */
+export function lbStepFor(equipment: Equipment): number {
+  return equipment === 'bodyweight' || equipment === 'band' ? 2.5 : 5;
+}
+
+export function kgIncrementToLb(incKg: number): number {
+  if (incKg <= 0) return 0;
+  return Math.max(2.5, Math.round((incKg * 2.2046226218) / 2.5) * 2.5);
 }
 
 export interface StallInput {

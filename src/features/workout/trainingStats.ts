@@ -10,7 +10,7 @@ import { loadExerciseLookup } from '../../db/repo/exercises';
 import { exerciseHistory } from '../../db/repo/workouts';
 import type { Settings } from '../../db/schemas';
 
-export async function weekVolume(today: string, weekStart: 0 | 1): Promise<{ volume: MuscleVolume; sessions: number; from: string }> {
+export async function weekVolume(today: string, weekStart: 0 | 1): Promise<{ volume: MuscleVolume; sessions: number; workingSets: number; from: string }> {
   const from = startOfWeek(today, weekStart);
   const get = await loadExerciseLookup();
   const sets = await db.sets.where('date').between(from, addDays(from, 6), true, true).toArray();
@@ -18,6 +18,7 @@ export async function weekVolume(today: string, weekStart: 0 | 1): Promise<{ vol
   return {
     volume: setsByMuscle(sets, (id) => get(id)),
     sessions: workouts.filter((w) => w.status === 'done').length,
+    workingSets: sets.filter((s) => s.kind === 'working').length,
     from,
   };
 }

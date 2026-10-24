@@ -46,6 +46,11 @@ export async function applyBackup(
       const table = db.table(t);
       const rows = (data.tables[t] ?? []) as Array<Record<string, unknown>>;
       const spec = BACKUP_SPECS[t];
+      // 備份裡沒有設定時保留目前的設定，避免還原後被導回首次設定
+      if (mode === 'replace' && t === 'settings' && rows.length === 0) {
+        written[t] = 0;
+        continue;
+      }
       if (mode === 'replace') {
         await table.clear();
         if (rows.length) await table.bulkPut(rows);

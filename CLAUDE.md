@@ -36,8 +36,10 @@
 - 主要按鈕是粉筆白實心；完成狀態用綠色
 
 ## 部署
-- GitHub Pages（public repo `fitness-dashboard`），`.github/workflows/deploy.yml`：typecheck → test → build → deploy-pages
-- 建立 repo、push 前要先問使用者
+- 正式網址：https://momofeng.github.io/fitness-dashboard/（repo `momofeng/fitness-dashboard`，public）
+- push 到 main 就會跑 `.github/workflows/deploy.yml`：typecheck → test → build → deploy-pages（Pages 來源為 GitHub Actions）
+- 正式站驗收：`npx playwright test -c playwright.prod.config.ts`（manifest、SW 範圍、離線重新整理、離線食物搜尋）
+- push 前要先問使用者；git 作者用 GitHub noreply email（repo 設定），不要用真實 email
 
 ## Round 2 待辦
 選品（補給品知識卡、我的產品 CP 值、庫存、打卡、裝備）、恢復（睡眠、狀態、減量建議）、目標與習慣、月曆熱圖、進度照（ZIP 備份）、自適應 TDEE、條碼掃描、AI（`src/ai/provider.ts` 已預留介面）

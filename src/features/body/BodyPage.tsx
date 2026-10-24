@@ -1,9 +1,11 @@
+import { useLiveQuery } from 'dexie-react-hooks';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { dailyAverages, ffmi, movingAverage, rateVerdict, trendSeries, weeklyRatePct } from '../../core/body';
 import { addDays, relativeDayLabel, shortDateLabel } from '../../core/dates';
 import { fmt, fromDisplayWeight, toDisplayWeight } from '../../core/units';
 import { db } from '../../db/db';
-import { upsertBodyMetric, useBodyMetrics } from '../../db/repo/body';
+import { LIMITS } from '../../db/limits';
+import { moveBodyMetric, upsertBodyMetric, useBodyMetrics, validateBodyPatch } from '../../db/repo/body';
 import { CIRC_LABEL, CIRCUMFERENCES, type BodyMetric, type Circumference } from '../../db/schemas';
 import { Button, IconButton } from '../../ui/Button';
 import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
@@ -196,6 +198,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 function QuickWeight({ today, row, unit }: { today: string; row: BodyMetric | undefined; unit: 'kg' | 'lb' }) {
   const [w, setW] = useState<number | null>(null);
   const shown = w ?? (row?.weightKg != null ? Number(toDisplayWeight(row.weightKg, unit).toFixed(1)) : null);
+  const lo = Number(toDisplayWeight(LIMITS.weightKg[0], unit).toFixed(1));
+  const hi = Number(toDisplayWeight(LIMITS.weightKg[1], unit).toFixed(1));
+  const invalid = shown != null && (shown < lo || shown > hi);
   return (
     <div className="card flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
@@ -203,12 +208,13 @@ function QuickWeight({ today, row, unit }: { today: string; row: BodyMetric | un
         {row?.weightKg != null && <span className="text-sm text-go">已記錄</span>}
       </div>
       <div className="flex gap-2">
-        <NumberInput ariaLabel="今天的體重" value={shown} step={0.1} decimals={1} min={20} max={unit === 'kg' ? 300 : 660} suffix={unit} stepper size="lg" className="flex-1" onChange={setW} />
+        <NumberInput ariaLabel="今天的體重" value={shown} step={0.1} decimals={1} min={lo} max={hi} clamp={false} suffix={unit} stepper size="lg" className="flex-1" onChange={setW} />
       </div>
+      {invalid && <p className="text-sm text-danger">請輸入 {lo}–{hi} {unit} 之間的體重</p>}
       <Button
         variant="primary"
         block
-        disabled={shown == null || (w == null && row?.weightKg != null)}
+        disabled={shown == null || invalid || (w == null && row?.weightKg != null)}
         onClick={async () => {
           if (shown == null) return;
           await upsertBodyMetric(today, { weightKg: fromDisplayWeight(shown, unit) });
@@ -228,6 +234,14 @@ function MetricSheet({ date: initialDate, row, unit, onClose }: { date: string; 
   const [fat, setFat] = useState<number | null>(row?.bodyFatPct ?? null);
   const [circ, setCirc] = useState<Partial<Record<Circumference, number>>>(row?.circ ?? {});
   const [note, setNote] = useState(row?.note ?? '');
+  const patch = {
+    weightKg: weight == null ? null : fromDisplayWeight(weight, unit),
+    bodyFatPct: fat,
+    circ: Object.fromEntries(Object.entries(circ).filter(([, v]) => v != null)) as Partial<Record<Circumference, number>>,
+    note: note.trim(),
+  };
+  const error = validateBodyPatch(patch);
+  const targetHasData = useLiveQuery(async () => (date !== initialDate ? !!(await db.bodyMetrics.get(`body:${date}`)) : false), [date, initialDate]);
   return (
     <Sheet
       open
@@ -238,13 +252,11 @@ function MetricSheet({ date: initialDate, row, unit, onClose }: { date: string; 
           variant="primary"
           size="lg"
           block
+          disabled={!!error}
           onClick={async () => {
-            await upsertBodyMetric(date, {
-              weightKg: weight == null ? null : fromDisplayWeight(weight, unit),
-              bodyFatPct: fat,
-              circ: Object.fromEntries(Object.entries(circ).filter(([, v]) => v != null && v > 0)),
-              note: note.trim(),
-            });
+            // 編輯既有紀錄並改了日期 → 移動（刪除原日期）；新增則直接寫入
+            if (row && date !== initialDate) await moveBodyMetric(initialDate, date, patch);
+            else await upsertBodyMetric(date, patch);
             onClose();
           }}
         >
@@ -253,26 +265,32 @@ function MetricSheet({ date: initialDate, row, unit, onClose }: { date: string; 
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="日期">
+        <Field label="日期" hint={row && date !== initialDate ? `會把這筆從 ${initialDate} 移到 ${date}` : undefined}>
           <input type="date" className="field" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
         </Field>
+        {targetHasData && <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">{date} 已經有紀錄，儲存後會以這裡填的數值覆蓋。</p>}
         <div className="grid grid-cols-2 gap-3">
           <Field label={`體重（${unit}）`}>
-            <NumberInput ariaLabel="體重" value={weight} decimals={2} min={0} max={700} onChange={setWeight} />
+            <NumberInput ariaLabel="體重" value={weight} decimals={2} min={Number(toDisplayWeight(LIMITS.weightKg[0], unit).toFixed(1))} max={Number(toDisplayWeight(LIMITS.weightKg[1], unit).toFixed(1))} clamp={false} onChange={setWeight} />
           </Field>
           <Field label="體脂率（%）">
-            <NumberInput ariaLabel="體脂率" value={fat} decimals={1} min={2} max={70} onChange={setFat} />
+            <NumberInput ariaLabel="體脂率" value={fat} decimals={1} min={LIMITS.bodyFatPct[0]} max={LIMITS.bodyFatPct[1]} clamp={false} onChange={setFat} />
           </Field>
         </div>
         <p className="label">圍度（cm）</p>
         <div className="grid grid-cols-2 gap-3">
           {CIRCUMFERENCES.map((c) => (
             <Field key={c} label={CIRC_LABEL[c]}>
-              <NumberInput ariaLabel={CIRC_LABEL[c]} value={circ[c] ?? null} decimals={1} min={0} max={300} onChange={(v) => setCirc({ ...circ, [c]: v ?? undefined })} />
+              <NumberInput ariaLabel={CIRC_LABEL[c]} value={circ[c] ?? null} decimals={1} min={LIMITS.circCm[0]} max={LIMITS.circCm[1]} clamp={false} onChange={(v) => setCirc({ ...circ, [c]: v ?? undefined })} />
             </Field>
           ))}
         </div>
         <TextField label="備註" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+        {error && (
+          <p className="text-sm text-danger" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </Sheet>
   );

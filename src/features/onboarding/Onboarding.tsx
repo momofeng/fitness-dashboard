@@ -8,6 +8,7 @@ import { upsertBodyMetric } from '../../db/repo/body';
 import { activateTemplate } from '../../db/repo/programs';
 import { updateSettings, useSettings } from '../../db/repo/settings';
 import type { Settings } from '../../db/schemas';
+import { inRange, LIMITS } from '../../db/limits';
 import { requestPersist } from '../../lib/platform';
 import { Button } from '../../ui/Button';
 import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
@@ -41,7 +42,9 @@ function Wizard({ initial }: { initial: Settings }) {
   const draft: Settings = { ...initial, profile, nutrition, units: { weight: unit } };
   const targets = useMemo(() => (weightKg ? computeTargets(draft, weightKg, today) : null), [weightKg, profile, nutrition, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const basicsValid = weightKg != null && weightKg >= 30 && weightKg <= 300 && profile.heightCm >= 120 && profile.heightCm <= 230 && profile.birthYear >= 1930 && profile.birthYear <= 2012;
+  const weightOk = weightKg != null && inRange('weightKg', weightKg);
+  const fatOk = bodyFat == null || inRange('bodyFatPct', bodyFat);
+  const basicsValid = weightOk && fatOk && profile.heightCm >= 120 && profile.heightCm <= 230 && profile.birthYear >= 1930 && profile.birthYear <= 2012;
 
   async function finish() {
     setSaving(true);
@@ -160,16 +163,23 @@ function Wizard({ initial }: { initial: Settings }) {
                   value={weightKg == null ? null : toDisplayWeight(weightKg, unit)}
                   suffix={unit}
                   decimals={1}
-                  min={0}
-                  max={700}
+                  min={Number(toDisplayWeight(LIMITS.weightKg[0], unit).toFixed(1))}
+                  max={Number(toDisplayWeight(LIMITS.weightKg[1], unit).toFixed(1))}
+                  clamp={false}
                   placeholder={unit === 'kg' ? '例 68.5' : '例 150'}
                   onChange={(v) => setWeightKg(v == null ? null : fromDisplayWeight(v, unit))}
                 />
               </Field>
               <Field label="體脂率（選填）">
-                <NumberInput ariaLabel="體脂率" value={bodyFat} suffix="%" decimals={1} min={0} max={60} placeholder="不知道可略過" onChange={setBodyFat} />
+                <NumberInput ariaLabel="體脂率" value={bodyFat} suffix="%" decimals={1} min={LIMITS.bodyFatPct[0]} max={LIMITS.bodyFatPct[1]} clamp={false} placeholder="不知道可略過" onChange={setBodyFat} />
               </Field>
             </div>
+            {weightKg != null && !weightOk && (
+              <p className="text-sm text-danger">
+                體重請輸入 {fmt(toDisplayWeight(LIMITS.weightKg[0], unit))}–{fmt(toDisplayWeight(LIMITS.weightKg[1], unit))} {unit}
+              </p>
+            )}
+            {!fatOk && <p className="text-sm text-danger">體脂率請輸入 2–70%，不知道可以留空</p>}
           </>
         )}
 

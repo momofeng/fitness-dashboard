@@ -10,6 +10,8 @@ test('首頁截圖', async ({ page }) => {
   await page.getByLabel('選擇備份檔').setInputFiles('tests/fixtures/backup-v1.json');
   await page.getByRole('button', { name: '取代並還原' }).click();
   await expect(page).not.toHaveURL(/onboarding/);
+  await page.waitForURL(/#\/$/);
+  await page.getByRole('navigation', { name: '主要分頁' }).waitFor();
   await page.goto('./#/eat');
   await page.getByRole('button', { name: '快速加入熱量' }).click();
   await page.getByLabel('熱量', { exact: true }).fill('900');

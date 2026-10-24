@@ -4,6 +4,8 @@ import {
   DEFAULT_PROGRESSION_PREFS as P,
   EMPTY_STATE,
   detectStall,
+  kgIncrementToLb,
+  lbStepFor,
   nextProgression,
   roundingStepFor,
   type SlotTarget,
@@ -137,5 +139,64 @@ describe('停滯偵測', () => {
   });
   it('資料不足', () => {
     expect(detectStall([{ date: '2026-09-01', bestE1rm: 100 }], '2026-10-01', opts, diffDays).stalled).toBe(false);
+  });
+});
+
+describe('輔助型動作（數字越小越難）', () => {
+  const assisted: SlotTarget = { sets: 3, repMin: 6, repMax: 10, progression: 'double', incrementKg: 2.5 };
+  it('每組做到上限 → 輔助減少', () => {
+    const r = nextProgression(assisted, EMPTY_STATE, sets(30, 10, 10, 10), P, 2.5, { direction: -1 });
+    expect(r.outcome).toBe('increase');
+    expect(r.state.workingWeightKg).toBe(27.5);
+    expect(r.message).toContain('輔助減到 27.5');
+  });
+  it('評估取輔助最多的那組', () => {
+    const r = nextProgression(assisted, EMPTY_STATE, [...sets(25, 10, 10), ...sets(35, 10)], P, 2.5, { direction: -1 });
+    expect(r.state.workingWeightKg).toBe(32.5);
+  });
+  it('減量 → 增加輔助', () => {
+    const r = nextProgression(assisted, { workingWeightKg: 30, consecutiveFails: 1, deloadCount: 0 }, sets(30, 5, 4, 4), P, 2.5, { direction: -1 });
+    expect(r.outcome).toBe('deload');
+    expect(r.state.workingWeightKg).toBe(32.5);
+  });
+  it('輔助不會減到負數', () => {
+    const r = nextProgression(assisted, EMPTY_STATE, sets(2.5, 10, 10, 10), P, 2.5, { direction: -1 });
+    expect(r.state.workingWeightKg).toBe(0);
+  });
+});
+
+describe('減量下限', () => {
+  it('槓鈴不低於空槓', () => {
+    const r = nextProgression(linear, { workingWeightKg: 20, consecutiveFails: 2, deloadCount: 0 }, sets(20, 3, 3, 3), P, 2.5, { minWeight: 20 });
+    expect(r.state.workingWeightKg).toBe(20);
+  });
+});
+
+describe('純徒手（不加重）', () => {
+  it('做到上限不會出現「加到 0 kg」', () => {
+    const pushup: SlotTarget = { sets: 3, repMin: 10, repMax: 15, progression: 'double', incrementKg: 0 };
+    const r = nextProgression(pushup, EMPTY_STATE, sets(0, 15, 15, 15), P, 1.25);
+    expect(r.outcome).toBe('hold');
+    expect(r.message).not.toMatch(/0 kg/);
+    expect(r.message).toContain('更難的變式');
+  });
+  it('一直沒做到也不減量', () => {
+    const pushup: SlotTarget = { sets: 3, repMin: 10, repMax: 15, progression: 'double', incrementKg: 0 };
+    const r = nextProgression(pushup, { workingWeightKg: 0, consecutiveFails: 5, deloadCount: 0 }, sets(0, 8, 7, 6), P, 1.25);
+    expect(r.outcome).toBe('fail');
+  });
+});
+
+describe('磅制', () => {
+  it('135 lb 達標 → 140 lb（以 lb 計算）', () => {
+    const r = nextProgression({ ...linear, incrementKg: kgIncrementToLb(2.5) }, EMPTY_STATE, sets(135, 5, 5, 5), P, lbStepFor('barbell'), { unit: 'lb' });
+    expect(r.state.workingWeightKg).toBe(140);
+    expect(r.message).toContain('140 lb');
+  });
+  it('公斤加重量換成整齊的磅數', () => {
+    expect(kgIncrementToLb(2.5)).toBe(5);
+    expect(kgIncrementToLb(5)).toBe(10);
+    expect(kgIncrementToLb(1.25)).toBe(2.5);
+    expect(kgIncrementToLb(0)).toBe(0);
   });
 });

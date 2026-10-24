@@ -673,13 +673,13 @@ export const EXERCISES: Exercise[] = [
 
   // 腹
   {
-    id: 'plank', nameZh: '平板支撐', aliases: ['棒式', '平板式', 'Plank'], nameEn: 'Plank',
+    id: 'plank', nameZh: '棒式', aliases: ['平板支撐', '平板式', 'Plank'], nameEn: 'Plank',
     primary: ['abs'], secondary: ['glutes', 'frontDelt'], equipment: 'bodyweight', category: 'isolation', loadType: 'bodyweight',
     defaultIncrementKg: 0, defaultRepRange: [30, 60],
     cues: '次數欄位以「秒」計，每組撐 30 至 60 秒。手肘在肩膀正下方，從頭到腳成一直線，收肋骨、夾臀，不要塌腰或翹臀。',
   },
   {
-    id: 'side-plank', nameZh: '側平板支撐', aliases: ['側棒式', '側橋', 'Side Plank'], nameEn: 'Side Plank',
+    id: 'side-plank', nameZh: '側棒式', aliases: ['側平板支撐', '側橋', 'Side Plank'], nameEn: 'Side Plank',
     primary: ['abs'], secondary: ['glutes'], equipment: 'bodyweight', category: 'isolation', loadType: 'bodyweight',
     defaultIncrementKg: 0, defaultRepRange: [20, 45],
     cues: '次數欄位以「秒」計，每側撐 20 至 45 秒。手肘撐在肩膀正下方，髖部抬高讓身體成一直線，不要往前或往後倒。',

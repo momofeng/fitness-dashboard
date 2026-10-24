@@ -8,7 +8,7 @@ export default function AboutPage() {
       <Section title="隱私">
         <div className="card flex flex-col gap-2 p-4 text-base text-chalk-2">
           <p>你的訓練、飲食與身體數據只存在這個瀏覽器的 IndexedDB，不會上傳到任何伺服器。</p>
-          <p>App 程式碼放在 GitHub Pages，與同一個 github.io 網域下的其他頁面共用來源；本 App 的資料庫名稱獨立，不會與其他頁面混用。</p>
+          <p>App 放在 GitHub Pages。同一個 github.io 帳號網域下的其他頁面與本 App 屬於同一個來源，技術上讀得到這裡的瀏覽器資料；目前該網域只有本 App，資料庫名稱也獨立，若之後要放其他網頁，建議改用自訂網域隔開。</p>
         </div>
       </Section>
 

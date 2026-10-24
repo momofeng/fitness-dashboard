@@ -8,6 +8,7 @@ import { tonnage } from '../../core/training/volume';
 import { fmt, fromDisplayWeight, toDisplayWeight } from '../../core/units';
 import { db } from '../../db/db';
 import { smallestPlateKg } from '../../db/defaults';
+import { LIMITS } from '../../db/limits';
 import { useExerciseLookup, type AnyExercise } from '../../db/repo/exercises';
 import { useSettings } from '../../db/repo/settings';
 import {
@@ -18,6 +19,7 @@ import {
   lastSessionSets,
   logSet,
   removePlanItem,
+  restorePlanItem,
   restoreSet,
   swapPlanExercise,
   updatePlanItem,
@@ -27,12 +29,12 @@ import {
   type FinishResult,
 } from '../../db/repo/workouts';
 import type { PlanItem, Settings, Workout, WorkoutSet } from '../../db/schemas';
-import { keepAwake, notificationPermission, requestNotification, unlockAudio } from '../../lib/platform';
+import { keepAwake, unlockAudio } from '../../lib/platform';
 import { Button, IconButton } from '../../ui/Button';
 import { Field, NumberInput } from '../../ui/Fields';
 import { Icon } from '../../ui/Icon';
 import { Sheet } from '../../ui/Sheet';
-import { toastUndo } from '../../ui/toast';
+import { toast, toastUndo } from '../../ui/toast';
 import { ExercisePicker } from './ExercisePicker';
 import { PlateBar, PlateCalculator } from './PlateBar';
 import { RestTimer } from './RestTimer';
@@ -165,7 +167,6 @@ function Session({
 
   async function onLog(item: PlanItem, values: { weightKg: number; reps: number; rir: number | null }, kind: WorkoutSet['kind'] = 'working') {
     unlockAudio();
-    if (notificationPermission() === 'default') void requestNotification();
     await logSet(workout.id, { exerciseId: item.exerciseId, kind, ...values }, kind === 'warmup' ? Math.min(60, item.restSec) : item.restSec);
   }
 
@@ -176,6 +177,8 @@ function Session({
       onFinishing();
       const r = await finishWorkout(workout.id);
       onFinished(r);
+    } catch (e) {
+      toast(`完成失敗，訓練紀錄都還在：${e instanceof Error ? e.message : e}`, { tone: 'error', ms: 8000 });
     } finally {
       setBusy(false);
     }
@@ -235,7 +238,10 @@ function Session({
         onClose={() => setPicker(null)}
         title={picker?.mode === 'swap' ? '換成其他動作' : '新增動作'}
         onPick={(exId) => {
-          if (picker?.mode === 'swap') void swapPlanExercise(workout.id, picker.index, exId);
+          if (picker?.mode === 'swap')
+            void swapPlanExercise(workout.id, picker.index, exId).then((r) => {
+              if (r === 'kept') toast('已完成的組保留在原動作，新動作排在它後面');
+            });
           else void addExerciseToWorkout(workout.id, exId, settings.training.defaultRestSec);
         }}
       />
@@ -276,7 +282,7 @@ function Session({
           <Stat label="訓練量" value={`${fmt(toDisplayWeight(tonnage(sets), settings.units.weight), 0)}`} sub={settings.units.weight} />
         </div>
         {working.length < plannedTotal && working.length > 0 && (
-          <p className="mt-4 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">還有 {plannedTotal - working.length} 組沒做。沒做完的動作會算「未達標」，下次維持重量。</p>
+          <p className="mt-4 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">還有 {plannedTotal - working.length} 組沒做。有做但組數不足的動作算「未達標」、下次維持重量；完全沒做的動作不會調整。</p>
         )}
       </Sheet>
 
@@ -461,8 +467,9 @@ function ExerciseCard({
         ))}
         <button
           type="button"
+          disabled={item.sets >= LIMITS.planSets[1]}
           onClick={() => void updatePlanItem(workout.id, index, { sets: item.sets + 1 })}
-          className="press mx-2 flex h-10 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2"
+          className="press mx-2 flex h-10 disabled:opacity-40 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2"
         >
           <Icon name="plus" size={16} />
           加一組
@@ -605,6 +612,8 @@ function ExerciseMenu({
   onSwap: () => void;
 }) {
   const pref = useLiveQuery(() => db.exercisePrefs.get(item.exerciseId), [item.exerciseId]);
+  const loggedCount = useLiveQuery(() => db.sets.where({ workoutId: workout.id }).filter((s) => s.exerciseId === item.exerciseId).count(), [workout.id, item.exerciseId]) ?? 0;
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const saveNote = async () => {
     if (note == null) return;
@@ -643,16 +652,25 @@ function ExerciseMenu({
           <Button icon="swap" block onClick={onSwap}>
             換成其他動作
           </Button>
+          {loggedCount > 0 && <p className="text-cap text-chalk-4">已記錄的組會保留在原動作，新動作排在後面。</p>}
+          {confirmRemove && loggedCount > 0 && (
+            <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">已經記錄了 {loggedCount} 組，移除會一起刪掉（之後可以按「復原」）。</p>
+          )}
           <Button
             variant="danger"
             icon="trash"
             block
             onClick={async () => {
-              await removePlanItem(workout.id, index);
+              if (loggedCount > 0 && !confirmRemove) {
+                setConfirmRemove(true);
+                return;
+              }
+              const removed = await removePlanItem(workout.id, index);
               onClose();
+              if (removed) toastUndo(`已移除${ex?.nameZh ?? '動作'}`, () => restorePlanItem(workout.id, removed));
             }}
           >
-            從這場移除
+            {confirmRemove && loggedCount > 0 ? `確定移除並刪除 ${loggedCount} 組` : '從這場移除'}
           </Button>
         </div>
       </div>

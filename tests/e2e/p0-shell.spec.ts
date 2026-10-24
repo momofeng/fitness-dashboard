@@ -50,6 +50,19 @@ test('離線：首次載入後切到離線，重新整理並切換各頁仍可�
     await page.goto(`./${hash}`);
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible();
   }
+  // 首頁、工具也走一遍
+  await page.goto('./#/');
+  await expect(page.getByRole('region', { name: '今天的飲食' })).toBeVisible();
+  await page.goto('./#/tools');
+  await expect(page.getByRole('heading', { level: 1, name: '小工具', exact: true })).toBeVisible();
+  // 離線開始訓練並記一組
+  await page.goto('./#/train');
+  await page.getByRole('button', { name: '開始訓練' }).click();
+  const squat = page.getByRole('region', { name: '槓鈴深蹲' });
+  await squat.getByLabel('第 1 組重量').fill('40');
+  await squat.getByRole('button', { name: '完成第 1 組' }).click();
+  await expect(squat.getByRole('button', { name: '取消第 1 組' })).toBeVisible();
+  expect(await readAll(page, 'sets')).toHaveLength(1);
   await context.setOffline(false);
 });
 

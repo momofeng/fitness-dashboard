@@ -8,13 +8,34 @@ import { activateTemplate, deleteProgram, saveProgram, setActiveProgram, useActi
 import { useSettings } from '../../db/repo/settings';
 import type { Program } from '../../db/schemas';
 import { Button, IconButton } from '../../ui/Button';
-import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
+import { Field, NumberInput, Segmented } from '../../ui/Fields';
 import { Icon } from '../../ui/Icon';
 import { PageHeader, Section } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
 import { toast, toastUndo } from '../../ui/toast';
 import { ExercisePicker } from './ExercisePicker';
 import { VolumeList } from './VolumeList';
+
+/** 名稱輸入：編輯中可以清空；離開欄位時才存，空白就用預設名稱 */
+function NameField({ label, ariaLabel, value, fallback, maxLength, onSave }: { label?: string; ariaLabel?: string; value: string; fallback: string; maxLength: number; onSave: (v: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const input = (
+    <input
+      aria-label={ariaLabel ?? label}
+      className={label ? 'field' : 'field h-10 font-semibold'}
+      value={draft ?? value}
+      maxLength={maxLength}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft == null) return;
+        const v = draft.trim() || fallback;
+        setDraft(null);
+        if (v !== value) onSave(v);
+      }}
+    />
+  );
+  return label ? <Field label={label}>{input}</Field> : input;
+}
 
 export default function ProgramPage() {
   const settings = useSettings();
@@ -54,7 +75,7 @@ export default function ProgramPage() {
       {active ? (
         <>
           <div className="card flex flex-col gap-3 p-4">
-            <TextField label="課表名稱" value={active.name} maxLength={60} onChange={(e) => void update({ ...active, name: e.target.value || '我的課表' })} />
+            <NameField label="課表名稱" value={active.name} fallback="我的課表" maxLength={60} onSave={(name) => void update({ ...active, name })} />
             <Field label="每週練幾天" hint="用來估算每週組數與本週進度">
               <NumberInput ariaLabel="每週天數" value={active.daysPerWeek} decimals={0} min={1} max={7} stepper onChange={(v) => v != null && void update({ ...active, daysPerWeek: Math.round(v) })} />
             </Field>
@@ -82,12 +103,12 @@ export default function ProgramPage() {
             >
               <div className="card overflow-hidden">
                 <div className="border-b border-seam p-3">
-                  <input
-                    aria-label="訓練日名稱"
-                    className="field h-10 font-semibold"
+                  <NameField
+                    ariaLabel="訓練日名稱"
                     value={day.name}
+                    fallback={`第 ${di + 1} 天`}
                     maxLength={40}
-                    onChange={(e) => void update({ ...active, days: active.days.map((d, i) => (i === di ? { ...d, name: e.target.value || `第 ${di + 1} 天` } : d)) })}
+                    onSave={(name) => void update({ ...active, days: active.days.map((d, i) => (i === di ? { ...d, name } : d)) })}
                   />
                 </div>
                 <ol className="divide-y divide-seam">

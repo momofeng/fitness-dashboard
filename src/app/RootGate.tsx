@@ -28,6 +28,8 @@ export function RootGate() {
   if (!settings) return <div className="min-h-dvh bg-floor" aria-busy="true" />;
   const onOnboarding = location.pathname.startsWith('/onboarding');
   if (!settings.onboarded && !onOnboarding) return <Navigate to="/onboarding" replace />;
+  // 完成設定的瞬間，設定的即時查詢可能還沒更新而被彈回設定頁；更新後在這裡導回首頁，不會卡在第一步
+  if (settings.onboarded && onOnboarding) return <Navigate to="/" replace />;
 
   return (
     <>

@@ -42,6 +42,11 @@ export interface NumberInputProps {
   ariaLabel?: string;
   id?: string;
   className?: string;
+  /**
+   * false：超出範圍時不自動改成上下限（避免 7.5 被悄悄改成 20），
+   * 照實回傳數值並標紅，由表單決定能不能儲存
+   */
+  clamp?: boolean;
 }
 
 /**
@@ -62,6 +67,7 @@ export function NumberInput({
   ariaLabel,
   id,
   className = '',
+  clamp = true,
 }: NumberInputProps) {
   const [text, setText] = useState(fmtInput(value, decimals));
   const [focused, setFocused] = useState(false);
@@ -84,6 +90,7 @@ export function NumberInput({
   };
 
   const big = size === 'lg';
+  const outOfRange = !clamp && value != null && (value < min || value > max);
   return (
     <div className={`flex min-w-0 items-stretch gap-1.5 ${className}`}>
       {stepper && (
@@ -109,20 +116,21 @@ export function NumberInput({
             setFocused(true);
             e.currentTarget.select();
           }}
+          aria-invalid={outOfRange || undefined}
           onBlur={() => {
             setFocused(false);
             const n = parse(text);
-            const v = n == null ? null : clampV(n);
+            const v = n == null ? null : clamp ? clampV(n) : n;
             onChange(v);
             setText(fmtInput(v, decimals));
           }}
           onChange={(e) => {
             setText(e.target.value);
             const n = parse(e.target.value);
-            if (n != null && n >= min && n <= max) onChange(n);
+            if (n != null && (!clamp || (n >= min && n <= max))) onChange(n);
             if (e.target.value.trim() === '') onChange(null);
           }}
-          className={`field num w-full text-center font-semibold placeholder:text-sm placeholder:font-normal placeholder:text-chalk-4 ${big ? 'h-14 text-h2' : 'text-h4'} ${suffix ? 'pr-9' : ''}`}
+          className={`field num w-full text-center font-semibold placeholder:text-sm placeholder:font-normal placeholder:text-chalk-4 ${big ? 'h-14 text-h2' : 'text-h4'} ${suffix ? 'pr-9' : ''} ${outOfRange ? 'border-danger' : ''}`}
         />
         {suffix && (
           <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-chalk-3">{suffix}</span>

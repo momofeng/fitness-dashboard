@@ -3,7 +3,7 @@ import { applyBackup, backupFileName, exportBackup, type ImportMode } from '../.
 import type { ParseResult } from '../../db/backup/import';
 import { BACKUP_SPECS, BACKUP_TABLES } from '../../db/backup/tables';
 import { db } from '../../db/db';
-import { shareOrDownload } from '../../lib/platform';
+import { download } from '../../lib/platform';
 import { Button, type ButtonProps } from '../../ui/Button';
 import { Segmented } from '../../ui/Fields';
 import { Sheet } from '../../ui/Sheet';
@@ -31,11 +31,8 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
       const current = await exportBackup(db, __APP_VERSION__);
       const hasData = BACKUP_TABLES.some((t) => t !== 'settings' && current.tables[t].length > 0);
       if (hasData) {
-        await shareOrDownload(
-          new Blob([JSON.stringify(current)], { type: 'application/json' }),
-          backupFileName().replace('fitness-backup', 'fitness-before-import'),
-          '匯入前自動備份',
-        );
+        // 直接下載到「下載」資料夾，不走分享面板，避免使用者關掉面板後仍執行取代
+        download(new Blob([JSON.stringify(current)], { type: 'application/json' }), backupFileName().replace('fitness-backup', 'fitness-before-import'));
       }
       await applyBackup(db, parsed.data, mode);
       setParsed(null);
@@ -105,7 +102,7 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
               onChange={setMode}
             />
             <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">
-              {mode === 'replace' ? '目前的資料會被完全取代。' : '同一筆資料以較新的版本為準。'}執行前會先自動匯出一份目前資料（沒有資料時略過）。
+              {mode === 'replace' ? '目前的資料會被完全取代。' : '同一筆資料以較新的版本為準。'}執行前會先把目前資料下載一份到「下載」資料夾（沒有資料時略過）。
             </p>
           </div>
         ) : parsed ? (
@@ -119,7 +116,7 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
               <ul className="flex flex-col gap-1 rounded-md bg-well p-3 text-sm text-chalk-3">
                 {parsed.issues.map((i, k) => (
                   <li key={k}>
-                    {BACKUP_SPECS[i.table as keyof typeof BACKUP_SPECS]?.label ?? i.table} 第 {i.index + 1} 筆・{i.path}：{i.message}
+                    {BACKUP_SPECS[i.table as keyof typeof BACKUP_SPECS]?.label ?? i.table} 第 {i.index + 1} 筆，{i.path}：{i.message}
                   </li>
                 ))}
               </ul>

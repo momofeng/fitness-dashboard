@@ -3,6 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { portionFactor, scaleNutrients } from '../../core/nutrition';
 import { db, newId } from '../db';
+import { clampTo } from '../limits';
 import type { CustomFood, DailyLog, FoodLog, Meal, MealTemplate, PerNutrients } from '../schemas';
 
 /** 搜尋與記錄用的統一食物格式（衛福部、自建、餐點組合） */
@@ -197,7 +198,7 @@ export async function saveCustomFood(f: Omit<CustomFood, 'id' | 'updatedAt'> & {
 export async function addWater(date: string, ml: number) {
   await db.transaction('rw', db.dailyLogs, async () => {
     const cur = await db.dailyLogs.get(date);
-    const next: DailyLog = { ...(cur ?? { date, waterMl: 0 }), waterMl: Math.max(0, (cur?.waterMl ?? 0) + ml), updatedAt: Date.now() };
+    const next: DailyLog = { ...(cur ?? { date, waterMl: 0 }), waterMl: clampTo('waterMl', (cur?.waterMl ?? 0) + ml), updatedAt: Date.now() };
     await db.dailyLogs.put(next);
   });
 }

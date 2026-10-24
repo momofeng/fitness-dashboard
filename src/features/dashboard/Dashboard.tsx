@@ -4,6 +4,7 @@ import { dailyAverages, movingAverage, rateVerdict, streak, weeklyRatePct } from
 import { addDays, diffDays, rangeKeys, shortDateLabel, toDateKey } from '../../core/dates';
 import { sumNutrients } from '../../core/nutrition';
 import { fmt, toDisplayWeight } from '../../core/units';
+import { MUSCLE_LABEL } from '../../content/types';
 import { db } from '../../db/db';
 import { useBodyMetrics } from '../../db/repo/body';
 import { addWater, useDailyLog, useFoodLogs } from '../../db/repo/foods';
@@ -74,6 +75,12 @@ export default function Dashboard() {
   const streakDays = activeDays ? streak(activeDays, today) : 0;
 
   const nextDay = program ? program.days[program.nextDayIndex % program.days.length] : undefined;
+  // 本週訓練量：主要肌群各算 1 組的正式組總數，以及低於參考下限的主要肌群
+  const weekSets = week?.workingSets ?? 0;
+  const lowMuscles =
+    week && week.sessions > 0
+      ? (['chest', 'lats', 'upperBack', 'quads', 'hamstrings', 'glutes'] as const).filter((m) => week.volume[m] < settings.training.volumeMin)
+      : [];
   const doneToday = todayWorkouts?.[0];
 
   return (
@@ -118,10 +125,11 @@ export default function Dashboard() {
         <section className="card flex flex-col gap-3 p-5" aria-label="今天的訓練">
           <div className="flex items-center justify-between">
             <p className="label">訓練</p>
-            {week && program && (
-              <span className="num text-sm text-chalk-3">
-                本週 {week.sessions}/{program.daysPerWeek} 次
-              </span>
+            {week && (
+              <Link to="/train" className="num text-sm text-chalk-3 hover:text-chalk">
+                本週 {week.sessions}
+                {program ? `/${program.daysPerWeek}` : ''} 次 · {fmt(weekSets, 0)} 組
+              </Link>
             )}
           </div>
           {active ? (
@@ -162,6 +170,11 @@ export default function Dashboard() {
                 選擇課表
               </Button>
             </>
+          )}
+          {lowMuscles.length > 0 && !active && (
+            <p className="text-sm text-chalk-3">
+              本週組數偏少：{lowMuscles.map((m) => MUSCLE_LABEL[m]).join('、')}
+            </p>
           )}
         </section>
 

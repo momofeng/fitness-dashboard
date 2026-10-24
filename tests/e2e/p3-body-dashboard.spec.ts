@@ -32,6 +32,8 @@ test('從首次設定頁直接還原備份（換新手機）', async ({ page }) 
   await importFile(page, FIXTURE);
   await page.getByRole('button', { name: '取代並還原' }).click();
   await expect(page).not.toHaveURL(/onboarding/);
+  await page.waitForURL(/#\/$/);
+  await page.getByRole('navigation', { name: '主要分頁' }).waitFor();
   expect((await readAll(page, 'bodyMetrics')).length).toBe(14);
 });
 
@@ -73,6 +75,8 @@ test('匯出 → 清除 → 還原 → 再匯出，兩份一致；壞檔不改�
   await importFile(page, { name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(first)) });
   await page.getByRole('button', { name: '取代並還原' }).click();
   await expect(page).not.toHaveURL(/onboarding/);
+  await page.waitForURL(/#\/$/);
+  await page.getByRole('navigation', { name: '主要分頁' }).waitFor();
 
   await page.goto('./#/settings/data');
   const d2 = page.waitForEvent('download');
@@ -133,6 +137,8 @@ test('身體、首頁、工具在 375px 沒有水平捲動', async ({ page }) =>
   await importFile(page, FIXTURE);
   await page.getByRole('button', { name: '取代並還原' }).click();
   await expect(page).not.toHaveURL(/onboarding/);
+  await page.waitForURL(/#\/$/);
+  await page.getByRole('navigation', { name: '主要分頁' }).waitFor();
   for (const hash of ['#/', '#/body', '#/tools']) {
     await page.goto(`./${hash}`);
     await page.waitForLoadState('networkidle');

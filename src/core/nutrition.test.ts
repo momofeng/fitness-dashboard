@@ -35,9 +35,14 @@ describe('熱量盈餘', () => {
 describe('巨量營養素', () => {
   const input = { sex: 'male' as const, weightKg: 70, heightCm: 175, age: 30, activity: 1.55 };
 
-  it('加總熱量與目標相差 ±25 kcal 內（四捨五入到 5 g 的誤差）', () => {
-    const t = macroTargets(input, prefs);
-    expect(Math.abs(kcalFromMacros(t.protein, t.carbs, t.fat) - t.kcal)).toBeLessThanOrEqual(25);
+  it('加總熱量與目標相差 ≤ 10 kcal（各項四捨五入到 5 g 的誤差上限），掃描多種體型', () => {
+    for (const sex of ['male', 'female'] as const)
+      for (let w = 40; w <= 120; w += 0.5)
+        for (const activity of [1.2, 1.55, 1.9]) {
+          const t = macroTargets({ ...input, sex, weightKg: w, activity }, prefs);
+          if (t.carbs === 0) continue;
+          expect(Math.abs(kcalFromMacros(t.protein, t.carbs, t.fat) - t.kcal), `${sex} ${w}kg ×${activity}`).toBeLessThanOrEqual(10);
+        }
   });
   it('蛋白質 1.8 g/kg → 125 g（四捨五入到 5）', () => {
     expect(macroTargets(input, prefs).protein).toBe(125);

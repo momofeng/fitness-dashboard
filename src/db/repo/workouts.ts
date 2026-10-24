@@ -6,10 +6,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { ProgramDay } from '../../content/types';
 import { todayKey } from '../../core/dates';
 import { computePrs, type DatedSet } from '../../core/training/strength';
-import { EMPTY_STATE, nextProgression, roundingStepFor } from '../../core/training/progression';
-import { fmt } from '../../core/units';
+import { EMPTY_STATE, kgIncrementToLb, lbStepFor, nextProgression, roundingStepFor } from '../../core/training/progression';
+import { fmt, kgToLb, lbToKg } from '../../core/units';
 import { loadExerciseLookup, type AnyExercise } from './exercises';
 import { db, newId } from '../db';
+import { clampTo } from '../limits';
 import { smallestPlateKg } from '../defaults';
 import type { PlanItem, Program, Workout, WorkoutSet } from '../schemas';
 import { latestWeightKg } from './body';
@@ -55,7 +56,8 @@ export async function planItemFor(
     repMax: slot.repMax,
     restSec: pref?.restSec ?? slot.restSec,
     progression: slot.progression,
-    incrementKg: slot.incrementKg ?? pref?.incrementKg ?? ex?.defaultIncrementKg ?? 2.5,
+    // 使用者在動作頁設的加重量優先於課表預設
+    incrementKg: pref?.incrementKg ?? slot.incrementKg ?? ex?.defaultIncrementKg ?? 2.5,
     targetWeightKg: state?.workingWeightKg ?? (lastWorking.length ? Math.min(...lastWorking.map((s) => s.weightKg)) : null),
     targetReps,
     supersetGroup: slot.supersetGroup,
@@ -106,32 +108,64 @@ export async function updatePlanItem(workoutId: string, index: number, patch: Pa
   await db.transaction('rw', db.workouts, async () => {
     const w = await db.workouts.get(workoutId);
     if (!w || !w.plan[index]) return;
-    const plan = w.plan.map((p, i) => (i === index ? { ...p, ...patch } : p));
+    const safe = patch.sets != null ? { ...patch, sets: Math.round(clampTo('planSets', patch.sets)) } : patch;
+    const plan = w.plan.map((p, i) => (i === index ? { ...p, ...safe } : p));
     await db.workouts.update(workoutId, { plan, updatedAt: Date.now() });
   });
 }
 
-/** 從這場訓練移除某動作（連同已記錄的組） */
-export async function removePlanItem(workoutId: string, index: number) {
-  await db.transaction('rw', db.workouts, db.sets, async () => {
+export interface RemovedPlanItem {
+  index: number;
+  item: PlanItem;
+  sets: WorkoutSet[];
+}
+
+/** 從這場訓練移除某動作（連同已記錄的組）；回傳的資料可交給 restorePlanItem 復原 */
+export async function removePlanItem(workoutId: string, index: number): Promise<RemovedPlanItem | null> {
+  return db.transaction('rw', db.workouts, db.sets, async () => {
     const w = await db.workouts.get(workoutId);
     const item = w?.plan[index];
-    if (!w || !item) return;
+    if (!w || !item) return null;
     const stillUsed = w.plan.some((p, i) => i !== index && p.exerciseId === item.exerciseId);
-    if (!stillUsed) await db.sets.where({ workoutId }).filter((s) => s.exerciseId === item.exerciseId).delete();
+    const sets = stillUsed ? [] : await db.sets.where({ workoutId }).filter((s) => s.exerciseId === item.exerciseId).toArray();
+    if (sets.length) await db.sets.bulkDelete(sets.map((s) => s.id));
     await db.workouts.update(workoutId, { plan: w.plan.filter((_, i) => i !== index), updatedAt: Date.now() });
+    return { index, item, sets };
   });
 }
 
-export async function swapPlanExercise(workoutId: string, index: number, exerciseId: string) {
+export async function restorePlanItem(workoutId: string, removed: RemovedPlanItem) {
+  await db.transaction('rw', db.workouts, db.sets, async () => {
+    const w = await db.workouts.get(workoutId);
+    if (!w) return;
+    const plan = [...w.plan];
+    plan.splice(Math.min(removed.index, plan.length), 0, removed.item);
+    await db.workouts.update(workoutId, { plan, updatedAt: Date.now() });
+    if (removed.sets.length) await db.sets.bulkPut(removed.sets);
+  });
+}
+
+/**
+ * 換動作：還沒記錄任何組就直接替換；已經有記錄的組則保留舊動作（組數改成已完成的組數），
+ * 新動作插在它後面，不會刪掉已經練完的組。回傳是否保留了舊動作。
+ */
+export async function swapPlanExercise(workoutId: string, index: number, exerciseId: string): Promise<'replaced' | 'kept'> {
   const get = await loadExerciseLookup();
-  await db.transaction('rw', db.workouts, db.sets, db.exercisePrefs, db.progressionState, async () => {
+  return db.transaction('rw', db.workouts, db.sets, db.exercisePrefs, db.progressionState, async () => {
     const w = await db.workouts.get(workoutId);
     const item = w?.plan[index];
-    if (!w || !item) return;
-    await db.sets.where({ workoutId }).filter((s) => s.exerciseId === item.exerciseId).delete();
+    if (!w || !item) return 'replaced';
+    const logged = await db.sets.where({ workoutId }).filter((s) => s.exerciseId === item.exerciseId && s.kind === 'working').count();
     const next = await planItemFor({ ...item, exerciseId, incrementKg: undefined }, get);
-    await db.workouts.update(workoutId, { plan: w.plan.map((p, i) => (i === index ? next : p)), updatedAt: Date.now() });
+    const plan = [...w.plan];
+    if (logged > 0) {
+      plan[index] = { ...item, sets: logged };
+      plan.splice(index + 1, 0, next);
+    } else {
+      plan[index] = next;
+    }
+    await db.workouts.update(workoutId, { plan, updatedAt: Date.now() });
+    return logged > 0 ? 'kept' : 'replaced';
   });
 }
 
@@ -144,7 +178,9 @@ export async function logSet(
   return db.transaction('rw', db.workouts, db.sets, async () => {
     const w = await db.workouts.get(workoutId);
     if (!w) throw new Error('找不到這場訓練');
-    const count = await db.sets.where({ workoutId }).filter((s) => s.exerciseId === input.exerciseId).count();
+    // 用最大 order + 1（取消中間某組後再記，順序也不會重複）
+    const existing = await db.sets.where({ workoutId }).filter((s) => s.exerciseId === input.exerciseId).toArray();
+    const count = existing.reduce((m, s) => Math.max(m, s.order + 1), 0);
     const set: WorkoutSet = {
       id: newId(),
       workoutId,
@@ -223,9 +259,16 @@ export async function finishWorkout(workoutId: string): Promise<FinishResult> {
   const bodyweight = await latestWeightKg();
   const w = await db.workouts.get(workoutId);
   if (!w) throw new Error('找不到這場訓練');
+  // 已經完成過（例如連按兩次）就不要再套用一次進步規則
+  if (w.status === 'done') return w.summary ?? { prs: [], messages: [] };
   const sets = (await db.sets.where({ workoutId }).toArray()).sort((a, b) => a.order - b.order);
   const result: FinishResult = { prs: [], messages: [] };
   const now = Date.now();
+  // 磅制使用者以磅的級距計算（135 lb → 140 lb），存回資料庫時再換回公斤
+  const lb = settings.units.weight === 'lb';
+  const toU = (kg: number) => (lb ? kgToLb(kg) : kg);
+  const fromU = (v: number) => (lb ? lbToKg(v) : v);
+  const fmtW = (kg: number) => (lb ? `${fmt(kgToLb(kg))} lb` : `${fmt(kg)} kg`);
 
   await db.transaction('rw', [db.workouts, db.sets, db.progressionState, db.programs], async () => {
     const seen = new Set<string>();
@@ -236,27 +279,38 @@ export async function finishWorkout(workoutId: string): Promise<FinishResult> {
       const working = sets.filter((s) => s.exerciseId === item.exerciseId && s.kind === 'working');
       if (!working.length || item.progression === 'none' || !ex) continue;
       const state = await db.progressionState.get(item.exerciseId);
-      const step = roundingStepFor(ex.equipment, {
-        smallestPlateKg: smallestPlateKg(settings),
-        dumbbellStepKg: settings.equipment.dumbbellStepKg,
-        machineStepKg: settings.equipment.machineStepKg,
-      });
+      const step = lb
+        ? lbStepFor(ex.equipment)
+        : roundingStepFor(ex.equipment, {
+            smallestPlateKg: smallestPlateKg(settings),
+            dumbbellStepKg: settings.equipment.dumbbellStepKg,
+            machineStepKg: settings.equipment.machineStepKg,
+          });
+      const isBar = ex.equipment === 'barbell' || ex.equipment === 'smith' || ex.equipment === 'ezbar';
+      const direction = ex.loadType === 'assisted' ? -1 : 1;
       const res = nextProgression(
-        { sets: item.sets, repMin: item.repMin, repMax: item.repMax, progression: item.progression, incrementKg: item.incrementKg },
-        state ?? EMPTY_STATE,
-        working.map((s) => ({ weightKg: s.weightKg, reps: s.reps })),
+        {
+          sets: item.sets,
+          repMin: item.repMin,
+          repMax: item.repMax,
+          progression: item.progression,
+          incrementKg: ex.loadType === 'bodyweight' ? 0 : lb ? kgIncrementToLb(item.incrementKg) : item.incrementKg,
+        },
+        state ? { ...state, workingWeightKg: state.workingWeightKg == null ? null : toU(state.workingWeightKg) } : EMPTY_STATE,
+        working.map((s) => ({ weightKg: toU(s.weightKg), reps: s.reps })),
         {
           failsBeforeDeload: settings.training.failsBeforeDeload,
           doubleFailsBeforeDeload: settings.training.doubleFailsBeforeDeload,
           deloadFactor: settings.training.deloadFactor,
         },
         step,
+        { direction, minWeight: isBar && direction === 1 ? toU(settings.equipment.barKg) : undefined, unit: lb ? 'lb' : 'kg' },
       );
       if (res.outcome === 'skipped') continue;
       const text = res.suggestSwitch ? `${res.message} 這是第二次減量，可以考慮改用雙重進步或換到中階課表。` : res.message;
       await db.progressionState.put({
         exerciseId: item.exerciseId,
-        workingWeightKg: res.state.workingWeightKg,
+        workingWeightKg: res.state.workingWeightKg == null ? null : fromU(res.state.workingWeightKg),
         consecutiveFails: res.state.consecutiveFails,
         deloadCount: res.state.deloadCount,
         nextTargetReps: res.nextTargetReps,
@@ -278,15 +332,22 @@ export async function finishWorkout(workoutId: string): Promise<FinishResult> {
       const before = computePrs(prior as DatedSet[], opts);
       const now_ = computePrs(sets.filter((s) => s.exerciseId === exId) as DatedSet[], opts);
       if (now_.bestE1rm && (!before.bestE1rm || now_.bestE1rm.value > before.bestE1rm.value + 0.01)) {
-        result.prs.push(`${ex.nameZh}：估計 1RM ${fmt(now_.bestE1rm.value)} kg`);
+        result.prs.push(`${ex.nameZh}：估計 1RM ${fmtW(now_.bestE1rm.value)}`);
         continue;
       }
+      let repPr = false;
       for (const [reps, rec] of now_.repMaxes) {
         const prev = before.repMaxes.get(reps);
         if (prev && rec.weightKg > prev.weightKg) {
-          result.prs.push(`${ex.nameZh}：${reps} 下最重 ${fmt(rec.weightKg)} kg`);
+          result.prs.push(`${ex.nameZh}：${reps} 下最重 ${fmtW(rec.weightKg)}`);
+          repPr = true;
           break;
         }
+      }
+      if (repPr) continue;
+      // 第三種 PR：單次訓練量（Σ 負荷 × 次數）
+      if (now_.bestSessionVolume && before.bestSessionVolume && now_.bestSessionVolume.value > before.bestSessionVolume.value + 0.5) {
+        result.prs.push(`${ex.nameZh}：單次訓練量 ${fmtW(now_.bestSessionVolume.value)}`);
       }
     }
 

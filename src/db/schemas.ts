@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { EQUIPMENT, LOAD_TYPES, MUSCLES } from '../content/types';
 import { isDateKey } from '../core/dates';
+import { LIMITS } from './limits';
 
 const dateKey = z.string().refine(isDateKey, { message: '日期格式須為 YYYY-MM-DD' });
 const id = z.string().min(1).max(100);
@@ -21,7 +22,7 @@ export const settingsSchema = z.object({
     name: z.string().max(40),
     sex: z.enum(['male', 'female']),
     birthYear: z.number().int().min(1900).max(2100),
-    heightCm: z.number().min(100).max(250),
+    heightCm: z.number().min(LIMITS.heightCm[0]).max(LIMITS.heightCm[1]),
     activity: z.number().min(1.1).max(2.0),
     experience: z.enum(['novice', 'intermediate', 'advanced']),
   }),
@@ -136,7 +137,7 @@ export type ProgressionStateRow = z.infer<typeof progressionStateSchema>;
 /** 開始訓練時把當天課表快照存在 workout 上，之後改課表不影響這場 */
 export const planItemSchema = z.object({
   exerciseId: id,
-  sets: z.number().int().min(0).max(20),
+  sets: z.number().int().min(LIMITS.planSets[0]).max(LIMITS.planSets[1]),
   repMin: z.number().int().min(1).max(100),
   repMax: z.number().int().min(1).max(100),
   restSec: z.number().int().min(0).max(900),
@@ -279,7 +280,7 @@ export type FoodUsage = z.infer<typeof foodUsageSchema>;
 
 export const dailyLogSchema = z.object({
   date: dateKey,
-  waterMl: nonneg.max(20000),
+  waterMl: z.number().min(LIMITS.waterMl[0]).max(LIMITS.waterMl[1]),
   // Round 2：恢復模組
   sleepHours: nonneg.max(24).optional(),
   energy: z.number().int().min(1).max(5).optional(),
@@ -307,9 +308,9 @@ export const CIRC_LABEL: Record<Circumference, string> = {
 export const bodyMetricSchema = z.object({
   id,
   date: dateKey,
-  weightKg: z.number().min(20).max(400).nullable(),
-  bodyFatPct: z.number().min(2).max(70).nullable(),
-  circ: z.partialRecord(z.enum(CIRCUMFERENCES), z.number().min(5).max(300)),
+  weightKg: z.number().min(LIMITS.weightKg[0]).max(LIMITS.weightKg[1]).nullable(),
+  bodyFatPct: z.number().min(LIMITS.bodyFatPct[0]).max(LIMITS.bodyFatPct[1]).nullable(),
+  circ: z.partialRecord(z.enum(CIRCUMFERENCES), z.number().min(LIMITS.circCm[0]).max(LIMITS.circCm[1])),
   note: z.string().max(500),
   updatedAt: ts,
 });

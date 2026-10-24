@@ -80,7 +80,8 @@ export function computePrs(sets: DatedSet[], opts: PrOptions): PrSummary {
       if (est != null && (bestE1rm == null || est > bestE1rm.value)) {
         bestE1rm = { value: est, date: s.date, weightKg: s.weightKg, reps: s.reps };
       }
-      if (s.reps <= MAX_E1RM_REPS) {
+      // 輔助型動作的數字越小越難，「最大重量」沒有意義，不列次數 PR
+      if (s.reps <= MAX_E1RM_REPS && opts.loadType !== 'assisted') {
         const prev = repMaxes.get(s.reps);
         if (!prev || s.weightKg > prev.weightKg) repMaxes.set(s.reps, { weightKg: s.weightKg, date: s.date });
       }

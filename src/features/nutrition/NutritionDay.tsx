@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { addDays, relativeDayLabel, shortDateLabel } from '../../core/dates';
 import { sumNutrients } from '../../core/nutrition';
@@ -16,7 +16,8 @@ import { useTargets } from '../shared/useToday';
 import { KcalHero, MacroBars } from './MacroSummary';
 
 /** 依時段猜現在要記哪一餐 */
-export function guessMeal(hour = new Date().getHours()): Meal {
+export function guessMeal(hour = new Date().getHours(), cutoffHour = 4): Meal {
+  if (hour < cutoffHour) return 'snack';
   if (hour < 10) return 'breakfast';
   if (hour < 14) return 'lunch';
   if (hour < 17) return 'snack';
@@ -131,7 +132,7 @@ export default function NutritionDay() {
       })}
 
       <div className="grid grid-cols-2 gap-2">
-        <Button icon="flame" onClick={() => setQuick(guessMeal())}>
+        <Button icon="flame" onClick={() => setQuick(guessMeal(undefined, settings.dayCutoffHour))}>
           快速加入熱量
         </Button>
         <Button
@@ -164,6 +165,8 @@ export default function NutritionDay() {
 
 function EntrySheet({ entry, onClose }: { entry: FoodLog | null; onClose: () => void }) {
   const [qty, setQty] = useState<number | null>(null);
+  // 換成另一筆時清掉沒儲存的份量，避免寫到別筆
+  useEffect(() => setQty(null), [entry?.id]);
   const cur = qty ?? entry?.qty ?? null;
   const ratio = entry && cur ? cur / entry.qty : 1;
   return (
