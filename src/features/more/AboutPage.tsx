@@ -1,4 +1,7 @@
+import { Link } from 'react-router';
+import { SUPPLEMENT_DISCLAIMER } from '../../content/supplementCards';
 import { PageHeader, Section } from '../../ui/Layout';
+import { GradeLegend } from '../shop/SupplementsPage';
 
 export default function AboutPage() {
   return (
@@ -8,6 +11,8 @@ export default function AboutPage() {
       <Section title="隱私">
         <div className="card flex flex-col gap-2 p-4 text-base text-chalk-2">
           <p>你的訓練、飲食與身體數據只存在這個瀏覽器的 IndexedDB，不會上傳到任何伺服器。</p>
+          <p>進度照也只存在這支手機；存檔時會重新編碼，去掉拍攝位置等資訊。一般 JSON 備份不含照片，ZIP 完整備份才有，分享 ZIP 檔時請留意對象。</p>
+          <p>條碼掃描只在手機上辨識，不會把條碼送到網路上查詢。</p>
           <p>App 放在 GitHub Pages。同一個 github.io 帳號網域下的其他頁面與本 App 屬於同一個來源，技術上讀得到這裡的瀏覽器資料；目前該網域只有本 App，資料庫名稱也獨立，若之後要放其他網頁，建議改用自訂網域隔開。</p>
         </div>
       </Section>
@@ -16,6 +21,20 @@ export default function AboutPage() {
         <div className="card flex flex-col gap-2 p-4 text-base text-chalk-2">
           <p>熱量、巨量營養素、1RM 與加重建議皆依公開公式估算，僅供參考，不構成醫療、營養或運動處方建議。</p>
           <p>有傷病、慢性病、懷孕或特殊飲食需求，請先諮詢醫師或合格專業人員。訓練時請注意動作安全，必要時找人協助保護。</p>
+        </div>
+      </Section>
+
+      <Section title="補給品知識卡的證據等級">
+        <div className="card flex flex-col gap-3 p-4">
+          <GradeLegend />
+          <p className="text-sm text-chalk-3">
+            每條功效、劑量與安全說法都附國際運動營養學會（ISSN）、國際奧會（IOC）共識、PubMed（PMID／DOI）或台灣政府機關的來源，可在
+            <Link to="/supplements" className="text-chalk-2 underline decoration-chalk-4 underline-offset-2">
+              知識卡
+            </Link>
+            逐條點開。卡片不提任何品牌。
+          </p>
+          <p className="text-sm text-chalk-3">{SUPPLEMENT_DISCLAIMER}</p>
         </div>
       </Section>
 
@@ -37,6 +56,7 @@ export default function AboutPage() {
               <li>基礎代謝：Mifflin-St Jeor（1990）</li>
               <li>1RM 估算：Epley（1985）、Brzycki（1993）</li>
               <li>FFMI：Kouri 等（1995）身高校正</li>
+              <li>自適應 TDEE：平均攝取 − 體重變化斜率 × 7700 kcal/kg（每公斤體重變化約 7700 kcal 的近似值）</li>
             </ul>
           </div>
           <p className="text-sm text-chalk-3">動作庫說明文字為本 App 自行撰寫。</p>
