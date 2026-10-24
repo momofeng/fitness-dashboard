@@ -113,6 +113,24 @@ export function sumNutrients(items: Nutrients[]): Required<Nutrients> {
   return out;
 }
 
+export interface PerBasis extends Nutrients {
+  basis: 'per100g' | 'perServing';
+}
+
+/**
+ * 份量換算倍數。unit='g' 表示輸入克數，'serving' 表示輸入份數。
+ * 無法換算（例如只有「每份」數值卻輸入克數、又不知道一份幾克）時回傳 null。
+ */
+export function portionFactor(per: PerBasis, qty: number, unit: 'g' | 'serving', servingG: number | null): number | null {
+  if (!(qty > 0)) return null;
+  if (per.basis === 'per100g') {
+    if (unit === 'g') return qty / 100;
+    return servingG && servingG > 0 ? (qty * servingG) / 100 : null;
+  }
+  if (unit === 'serving') return qty;
+  return servingG && servingG > 0 ? qty / servingG : null;
+}
+
 /** 由三大營養素推算熱量（Atwater 4/4/9） */
 export function kcalFromMacros(p: number, c: number, f: number): number {
   return p * 4 + c * 4 + f * 9;

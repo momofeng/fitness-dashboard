@@ -25,7 +25,8 @@ export default defineConfig({
   testDir: 'tests/e2e',
   outputDir: 'test-results',
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 4,
+  // 本機在 HDD 上同時啟動 4 個 Chromium 偶爾會啟動逾時，降到 2
+  workers: 2,
   retries: process.env.CI ? 1 : 0,
   timeout: 30_000,
   expect: { timeout: 7_000 },

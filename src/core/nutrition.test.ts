@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bmr, kcalFromMacros, macroTargets, scaleNutrients, sumNutrients, surplusFromRate, tdee } from './nutrition';
+import { bmr, kcalFromMacros, macroTargets, portionFactor, scaleNutrients, sumNutrients, surplusFromRate, tdee } from './nutrition';
 
 const prefs = {
   mode: 'rate' as const,
@@ -73,4 +73,20 @@ describe('份量換算', () => {
     ]);
     expect(s).toEqual({ kcal: 150, protein: 12, fat: 4, carbs: 6, fiber: 0, sodium: 100 });
   });
+});
+
+describe('份量倍數', () => {
+  const p100 = { basis: 'per100g' as const, kcal: 165, protein: 31, fat: 3.6, carbs: 0 };
+  const pServ = { basis: 'perServing' as const, kcal: 120, protein: 24, fat: 1.5, carbs: 3 };
+  it('每 100 g × 克數', () => expect(portionFactor(p100, 150, 'g', null)).toBe(1.5));
+  it('每 100 g × 份數（需知道一份幾克）', () => {
+    expect(portionFactor(p100, 2, 'serving', 120)).toBe(2.4);
+    expect(portionFactor(p100, 2, 'serving', null)).toBeNull();
+  });
+  it('每份 × 份數', () => expect(portionFactor(pServ, 1.5, 'serving', null)).toBe(1.5));
+  it('每份 × 克數（需知道一份幾克）', () => {
+    expect(portionFactor(pServ, 60, 'g', 30)).toBe(2);
+    expect(portionFactor(pServ, 60, 'g', null)).toBeNull();
+  });
+  it('份量 0 或負數無效', () => expect(portionFactor(p100, 0, 'g', null)).toBeNull());
 });

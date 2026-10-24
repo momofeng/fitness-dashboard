@@ -9,5 +9,5 @@ export function csvCell(v: unknown): string {
 export function toCsv(headers: string[], rows: unknown[][]): string {
   const lines = [headers.map(csvCell).join(',')];
   for (const r of rows) lines.push(r.map(csvCell).join(','));
-  return '﻿' + lines.join('\r\n') + '\r\n';
+  return '\uFEFF' + lines.join('\r\n') + '\r\n';
 }

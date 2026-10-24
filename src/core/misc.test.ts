@@ -68,6 +68,21 @@ describe('搜尋', () => {
 
 describe('CSV', () => {
   it('BOM、跳脫逗號與引號', () => {
-    expect(toCsv(['a', 'b'], [['x,y', 'say "hi"'], [1, null]])).toBe('﻿a,b\r\n"x,y","say ""hi"""\r\n1,\r\n');
+    expect(toCsv(['a', 'b'], [['x,y', 'say "hi"'], [1, null]])).toBe('\uFEFFa,b\r\n"x,y","say ""hi"""\r\n1,\r\n');
+  });
+});
+
+describe('搜尋排序', () => {
+  it('俗名完全相同勝過名稱開頭相同（鮮乳的俗名是牛奶）', () => {
+    const items = [{ name: '牛奶鳳梨' }, { name: '全脂鮮乳', aliases: ['牛乳', '牛奶'] }];
+    expect(searchItems(items, '牛奶')[0]!.name).toBe('全脂鮮乳');
+  });
+  it('去掉括號註記的本名視同完全相同', () => {
+    const items = [{ name: '溫泉蛋', aliases: ['雞蛋'] }, { name: '雞蛋(白殼)' }];
+    expect(searchItems(items, '雞蛋')[0]!.name).toBe('雞蛋(白殼)');
+  });
+  it('rank 加權', () => {
+    const items = [{ name: '雞胸骨湯', rank: -10 }, { name: '雞胸肉排', rank: 10 }];
+    expect(searchItems(items, '雞胸')[0]!.name).toBe('雞胸肉排');
   });
 });
