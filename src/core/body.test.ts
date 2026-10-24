@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyAverages, ffmi, movingAverage, streak, trendSeries, weeklyRatePct } from './body';
+import { dailyAverages, ffmi, movingAverage, rateVerdict, streak, trendSeries, weeklyRatePct } from './body';
 import { addDays } from './dates';
 
 const series = (start: string, values: Array<number | null>) =>
@@ -65,5 +65,17 @@ describe('連續紀錄天數', () => {
   });
   it('昨天沒記錄 → 0', () => {
     expect(streak(new Set(['2026-10-20']), '2026-10-24')).toBe(0);
+  });
+});
+
+describe('增肌速度判讀', () => {
+  it.each([
+    [-0.3, 'losing'],
+    [0.05, 'slow'],
+    [0.3, 'ok'],
+    [0.45, 'ok'],
+    [0.6, 'fast'],
+  ] as const)('週增 %d%% 對目標 0.3%%', (rate, verdict) => {
+    expect(rateVerdict(rate, 0.3).verdict).toBe(verdict);
   });
 });

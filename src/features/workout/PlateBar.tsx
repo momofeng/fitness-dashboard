@@ -1,7 +1,10 @@
 // 槓片示意：用奧運槓片的實體顏色畫出「每側要放哪些」。這是實物的顏色，不是資料系列色。
 
+import { useState } from 'react';
 import { plateLoadout, type PlateStock } from '../../core/training/strength';
 import { fmt } from '../../core/units';
+import type { Settings } from '../../db/schemas';
+import { Field, NumberInput } from '../../ui/Fields';
 
 const PLATE_STYLE: Record<string, { color: string; h: number; w: number; label: string }> = {
   '25': { color: '#e5534b', h: 100, w: 13, label: '#fff' },
@@ -55,6 +58,29 @@ export function PlateBar({ targetKg, barKg, stock, compact = false }: { targetKg
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+export function PlateCalculator({ initialKg, settings }: { initialKg: number; settings: Settings }) {
+  const [kg, setKg] = useState<number | null>(initialKg);
+  const [bar, setBar] = useState<number | null>(settings.equipment.barKg);
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="總重量（kg）">
+          <NumberInput ariaLabel="總重量" value={kg} step={2.5} decimals={2} min={0} max={500} stepper onChange={setKg} />
+        </Field>
+        <Field label="槓重（kg）">
+          <NumberInput ariaLabel="槓重" value={bar} step={5} decimals={2} min={0} max={50} onChange={setBar} />
+        </Field>
+      </div>
+      {kg != null && bar != null && (
+        <div className="rounded-lg bg-well p-4">
+          <PlateBar targetKg={kg} barKg={bar} stock={settings.equipment.plates} />
+        </div>
+      )}
+      <p className="text-sm text-chalk-3">依「設定 → 器材」裡的槓片數量計算。</p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyBackup, exportBackup, parseBackup, stripVolatile } from '../../src/db/backup/backup';
+import { applyBackup, exportBackup, stripVolatile } from '../../src/db/backup/backup';
+import { parseBackup } from '../../src/db/backup/import';
 import { FitnessDB } from '../../src/db/db';
 import { defaultSettings } from '../../src/db/defaults';
 

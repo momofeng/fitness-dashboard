@@ -1,0 +1,49 @@
+// 匯入驗證用的 schema 對照（只有匯入流程才載入 Zod）。
+
+import type { z } from 'zod';
+import {
+  bodyMetricSchema,
+  cardioSchema,
+  customExerciseSchema,
+  customFoodSchema,
+  dailyLogSchema,
+  exercisePrefSchema,
+  foodLogSchema,
+  foodUsageSchema,
+  goalSchema,
+  habitLogSchema,
+  habitSchema,
+  mealTemplateSchema,
+  photoSchema,
+  productSchema,
+  programSchema,
+  progressionStateSchema,
+  setSchema,
+  settingsSchema,
+  supplementLogSchema,
+  workoutSchema,
+} from '../schemas';
+import type { BackupTable } from './tables';
+
+export const BACKUP_SCHEMAS: Record<BackupTable, z.ZodType> = {
+  settings: settingsSchema,
+  exercisesCustom: customExerciseSchema,
+  exercisePrefs: exercisePrefSchema,
+  programs: programSchema,
+  progressionState: progressionStateSchema,
+  workouts: workoutSchema,
+  sets: setSchema,
+  cardio: cardioSchema,
+  foodsCustom: customFoodSchema,
+  mealTemplates: mealTemplateSchema,
+  foodLogs: foodLogSchema,
+  foodUsage: foodUsageSchema,
+  dailyLogs: dailyLogSchema,
+  bodyMetrics: bodyMetricSchema,
+  products: productSchema,
+  supplementLogs: supplementLogSchema,
+  goals: goalSchema,
+  habits: habitSchema,
+  habitLogs: habitLogSchema,
+  photos: photoSchema,
+};

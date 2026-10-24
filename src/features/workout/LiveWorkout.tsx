@@ -34,7 +34,7 @@ import { Icon } from '../../ui/Icon';
 import { Sheet } from '../../ui/Sheet';
 import { toastUndo } from '../../ui/toast';
 import { ExercisePicker } from './ExercisePicker';
-import { PlateBar } from './PlateBar';
+import { PlateBar, PlateCalculator } from './PlateBar';
 import { RestTimer } from './RestTimer';
 
 const BARBELL = new Set(['barbell', 'smith', 'ezbar']);
@@ -440,7 +440,7 @@ function ExerciseCard({
       )}
 
       <div className="flex flex-col gap-1.5 px-2 pb-3 sm:px-4">
-        <div className={`grid items-center gap-2 px-2 text-cap text-chalk-4 ${settings.training.useRir ? 'grid-cols-[24px_1fr_1fr_64px_48px]' : 'grid-cols-[24px_1fr_1fr_48px]'}`}>
+        <div className={`grid items-center gap-2 px-2 text-cap text-chalk-4 ${settings.training.useRir ? 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_64px_48px]' : 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_48px]'}`}>
           <span>組</span>
           <span className="text-center">重量（{unit}）</span>
           <span className="text-center">次數</span>
@@ -479,29 +479,6 @@ function ExerciseCard({
 function plateText(targetKg: number, s: Settings) {
   const side = (targetKg - s.equipment.barKg) / 2;
   return side > 0 ? `${fmt(side, 2)} kg` : '—';
-}
-
-export function PlateCalculator({ initialKg, settings }: { initialKg: number; settings: Settings }) {
-  const [kg, setKg] = useState<number | null>(initialKg);
-  const [bar, setBar] = useState<number | null>(settings.equipment.barKg);
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="總重量（kg）">
-          <NumberInput ariaLabel="總重量" value={kg} step={2.5} decimals={2} min={0} max={500} stepper onChange={setKg} />
-        </Field>
-        <Field label="槓重（kg）">
-          <NumberInput ariaLabel="槓重" value={bar} step={5} decimals={2} min={0} max={50} onChange={setBar} />
-        </Field>
-      </div>
-      {kg != null && bar != null && (
-        <div className="rounded-lg bg-well p-4">
-          <PlateBar targetKg={kg} barKg={bar} stock={settings.equipment.plates} />
-        </div>
-      )}
-      <p className="text-sm text-chalk-3">依「設定 → 器材」裡的槓片數量計算。</p>
-    </div>
-  );
 }
 
 function SetRow({
@@ -551,7 +528,7 @@ function SetRow({
 
   return (
     <div
-      className={`grid items-center gap-2 rounded-md px-2 py-1 ${useRir ? 'grid-cols-[24px_1fr_1fr_64px_48px]' : 'grid-cols-[24px_1fr_1fr_48px]'} ${
+      className={`grid items-center gap-2 rounded-md px-2 py-1 ${useRir ? 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_64px_48px]' : 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_48px]'} ${
         logged ? 'bg-go-soft/60' : isNext ? 'bg-iron-2 ring-1 ring-seam-strong' : ''
       }`}
     >

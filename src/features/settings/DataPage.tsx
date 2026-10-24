@@ -1,28 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toCsv } from '../../core/csv';
 import { diffDays, todayKey, toDateKey } from '../../core/dates';
-import { applyBackup, backupFileName, exportBackup, parseBackup, type ImportMode, type ParseResult } from '../../db/backup/backup';
-import { BACKUP_SPECS, BACKUP_TABLES } from '../../db/backup/tables';
 import { db } from '../../db/db';
-import { updateSettings, useSettings } from '../../db/repo/settings';
+import { loadExerciseLookup } from '../../db/repo/exercises';
+import { useSettings } from '../../db/repo/settings';
 import { MEAL_LABEL } from '../../db/schemas';
 import { persistStatus, requestPersist, shareOrDownload, storageEstimate, type PersistStatus } from '../../lib/platform';
 import { Button } from '../../ui/Button';
-import { Segmented } from '../../ui/Fields';
 import { Icon } from '../../ui/Icon';
 import { PageHeader, Section } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
 import { toast } from '../../ui/toast';
-import { loadExerciseLookup } from '../shared/exercises';
-
-export async function exportAndShare(): Promise<boolean> {
-  const backup = await exportBackup(db, __APP_VERSION__);
-  const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-  const how = await shareOrDownload(blob, backupFileName(), '增肌日誌備份');
-  if (how === 'cancelled') return false;
-  await updateSettings({ backup: { lastExportAt: Date.now() } });
-  return true;
-}
+import { exportAndShare } from './backupActions';
+import { RestoreBackup } from './RestoreBackup';
 
 const fmtBytes = (n: number) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
@@ -30,11 +20,8 @@ export default function DataPage() {
   const s = useSettings();
   const [persist, setPersist] = useState<PersistStatus | null>(null);
   const [usage, setUsage] = useState<{ usage: number; quota: number } | null>(null);
-  const [parsed, setParsed] = useState<ParseResult | null>(null);
-  const [mode, setMode] = useState<ImportMode>('replace');
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void persistStatus().then(setPersist);
@@ -43,40 +30,9 @@ export default function DataPage() {
 
   if (!s) return null;
   const today = todayKey(s.dayCutoffHour);
-  const lastDays = s.backup.lastExportAt ? diffDays(toDateKey(s.backup.lastExportAt), today) : null;
-
-  async function onFile(file: File | undefined) {
-    if (!file) return;
-    const text = await file.text();
-    setParsed(parseBackup(text, file.size));
-  }
-
-  async function doImport() {
-    if (!parsed?.ok) return;
-    setBusy(true);
-    try {
-      // 匯入前先自動匯出一份目前的資料，萬一選錯檔案還能救回
-      const current = await exportBackup(db, __APP_VERSION__);
-      const hasData = BACKUP_TABLES.some((t) => t !== 'settings' && current.tables[t].length > 0);
-      if (hasData) {
-        await shareOrDownload(
-          new Blob([JSON.stringify(current)], { type: 'application/json' }),
-          backupFileName().replace('fitness-backup', 'fitness-before-import'),
-          '匯入前自動備份',
-        );
-      }
-      await applyBackup(db, parsed.data, mode);
-      setParsed(null);
-      toast(mode === 'replace' ? '已用備份取代目前資料' : '已合併備份資料');
-    } catch (e) {
-      toast(`匯入失敗，資料沒有變動：${e instanceof Error ? e.message : e}`, { tone: 'error', ms: 8000 });
-    } finally {
-      setBusy(false);
-    }
-  }
+  const lastDays = s.backup.lastExportAt ? diffDays(toDateKey(s.backup.lastExportAt, s.dayCutoffHour), today) : null;
 
   async function exportCsv(kind: 'training' | 'food' | 'body') {
-    const today = todayKey(s!.dayCutoffHour);
     let csv = '';
     if (kind === 'training') {
       const get = await loadExerciseLookup();
@@ -156,19 +112,7 @@ export default function DataPage() {
         >
           匯出備份（JSON）
         </Button>
-        <Button icon="upload" block onClick={() => fileRef.current?.click()}>
-          從備份檔還原
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden"
-          onChange={(e) => {
-            void onFile(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
+        <RestoreBackup />
       </div>
 
       <Section title="匯出 CSV（可用 Excel／Google 試算表開啟）">
@@ -227,70 +171,6 @@ export default function DataPage() {
           </Button>
         </div>
       </Section>
-
-      <Sheet
-        open={parsed != null}
-        onClose={() => setParsed(null)}
-        title={parsed?.ok ? '確認還原' : '無法匯入'}
-        footer={
-          parsed?.ok ? (
-            <div className="flex gap-2">
-              <Button block onClick={() => setParsed(null)}>
-                取消
-              </Button>
-              <Button variant="primary" block disabled={busy} onClick={doImport}>
-                {busy ? '處理中…' : mode === 'replace' ? '取代並還原' : '合併'}
-              </Button>
-            </div>
-          ) : undefined
-        }
-      >
-        {parsed?.ok ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-chalk-3">
-              備份時間：{parsed.data.exportedAt ? new Date(parsed.data.exportedAt).toLocaleString('zh-TW') : '未知'}
-              {parsed.migratedFrom && `（舊版 v${parsed.migratedFrom}，已轉換）`}
-            </p>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
-              {BACKUP_TABLES.filter((t) => parsed.counts[t] > 0).map((t) => (
-                <li key={t} className="flex justify-between text-sm">
-                  <span className="text-chalk-2">{BACKUP_SPECS[t].label}</span>
-                  <span className="num">{parsed.counts[t]} 筆</span>
-                </li>
-              ))}
-            </ul>
-            <Segmented
-              ariaLabel="匯入方式"
-              value={mode}
-              options={[
-                { value: 'replace', label: '取代目前資料' },
-                { value: 'merge', label: '合併（較新者優先）' },
-              ]}
-              onChange={setMode}
-            />
-            <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">
-              {mode === 'replace' ? '目前的資料會被完全取代。' : '同一筆資料以較新的版本為準。'}執行前會先自動匯出一份目前資料。
-            </p>
-          </div>
-        ) : parsed ? (
-          <div className="flex flex-col gap-3">
-            {parsed.errors.map((e) => (
-              <p key={e} className="text-base text-danger">
-                {e}
-              </p>
-            ))}
-            {parsed.issues.length > 0 && (
-              <ul className="flex flex-col gap-1 rounded-md bg-well p-3 text-sm text-chalk-3">
-                {parsed.issues.map((i, k) => (
-                  <li key={k}>
-                    {BACKUP_SPECS[i.table as keyof typeof BACKUP_SPECS]?.label ?? i.table} 第 {i.index + 1} 筆・{i.path}：{i.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
-      </Sheet>
 
       <Sheet
         open={confirmClear}

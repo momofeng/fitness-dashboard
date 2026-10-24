@@ -12,6 +12,7 @@ import { requestPersist } from '../../lib/platform';
 import { Button } from '../../ui/Button';
 import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
 import { Icon } from '../../ui/Icon';
+import { RestoreBackup } from '../settings/RestoreBackup';
 import { computeTargets } from '../shared/useToday';
 
 const STEPS = ['開始', '基本資料', '活動量', '目標', '課表'] as const;
@@ -105,6 +106,15 @@ function Wizard({ initial }: { initial: Settings }) {
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="h-5 w-5 accent-[var(--go)]" />
                 <span className="text-base">我了解，開始設定</span>
               </label>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-chalk-3">換了新手機？可以直接用之前匯出的備份檔還原。</p>
+              <RestoreBackup label="從備份檔還原" buttonProps={{ variant: 'ghost' }} onDone={() => {
+                  // 還原後整頁重新載入，所有畫面都從新資料開始
+                  location.hash = '#/';
+                  location.reload();
+                }}
+              />
             </div>
           </>
         )}

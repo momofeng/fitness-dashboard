@@ -102,3 +102,16 @@ export function streak(activeDays: Set<DateKey>, today: DateKey): number {
 export function daysSince(date: DateKey | null, today: DateKey): number | null {
   return date ? diffDays(date, today) : null;
 }
+
+export type RateVerdict = 'slow' | 'ok' | 'fast' | 'losing';
+
+/**
+ * 增肌速度判讀：實際週增重率（%）對目標。
+ * 低於目標 0.15 個百分點算偏慢、高於 0.2 個百分點算偏快；負值代表體重在掉。
+ */
+export function rateVerdict(ratePct: number, targetPct: number): { verdict: RateVerdict; advice: string } {
+  if (ratePct < -0.05) return { verdict: 'losing', advice: '體重在下降，增肌期每天可再多吃約 200 kcal（一碗飯或一杯牛奶＋香蕉）。' };
+  if (ratePct < targetPct - 0.15) return { verdict: 'slow', advice: '增重比目標慢，每天多吃約 100–150 kcal，兩週後再看趨勢。' };
+  if (ratePct > targetPct + 0.2) return { verdict: 'fast', advice: '增重比目標快，脂肪可能長得比較多，每天少吃約 100 kcal。' };
+  return { verdict: 'ok', advice: '速度剛好，維持目前的熱量。' };
+}

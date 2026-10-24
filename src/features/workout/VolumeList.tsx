@@ -15,7 +15,7 @@ export function VolumeList({ volume, min, max, scaleNote }: { volume: MuscleVolu
         const v = volume[m];
         const status = v === 0 ? '' : v < min ? '偏少' : v > max ? '偏多' : '';
         return (
-          <div key={m} className="grid grid-cols-[52px_1fr_64px] items-center gap-2">
+          <div key={m} className="grid grid-cols-[52px_minmax(0,1fr)_64px] items-center gap-2">
             <span className="text-sm text-chalk-2">{MUSCLE_LABEL[m]}</span>
             <div className="relative h-2 rounded-full bg-iron-3" aria-hidden="true">
               <div className="absolute inset-y-0 rounded-full bg-seam-strong" style={{ left: pct(min), width: `calc(${pct(max)} - ${pct(min)})` }} />
