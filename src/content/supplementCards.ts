@@ -29,7 +29,8 @@ export const GRADE_INFO: Record<EvidenceGrade, { label: string; desc: string }> 
 export interface SourceRef {
   /** 顯示用，例如「ISSN 立場聲明：肌酸（Kreider 2017）」 */
   label: string;
-  kind: 'position' | 'consensus' | 'meta-analysis' | 'review' | 'rct' | 'government';
+  /** trial = 有對照但非隨機分組的試驗 */
+  kind: 'position' | 'consensus' | 'meta-analysis' | 'review' | 'rct' | 'trial' | 'government';
   pmid?: string;
   doi?: string;
   /** https://pubmed.ncbi.nlm.nih.gov/<pmid>/、https://doi.org/<doi> 或政府官方網址 */
@@ -135,8 +136,8 @@ export const SOURCES = {
     year: 2025,
   },
   'vegan-rct-2021': {
-    label: '全植物飲食與雜食的阻力訓練試驗（Hevia-Larraín 2021）',
-    kind: 'rct',
+    label: '全植物飲食與雜食的阻力訓練比較試驗（Hevia-Larraín 2021，非隨機分組）',
+    kind: 'trial',
     pmid: '33599941',
     doi: '10.1007/s40279-021-01434-9',
     url: 'https://pubmed.ncbi.nlm.nih.gov/33599941/',
@@ -408,7 +409,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
         sources: ['soy-meta-2018'],
       },
       {
-        text: '較新的統合分析：大豆與牛奶蛋白對肌肉量沒有差異；米、燕麥、馬鈴薯等非大豆植物蛋白可能略遜於動物蛋白；兩者對肌力沒有差異。',
+        text: '較新的統合分析（30 項試驗）：整體而言，植物蛋白帶來的肌肉量略少於動物蛋白，60 歲以下較明顯；但大豆和牛奶蛋白之間沒有差異，落差主要來自米、燕麥、馬鈴薯等非大豆植物蛋白。兩者對肌力沒有差異。',
         sources: ['plant-animal-meta-2025'],
       },
       {
@@ -511,7 +512,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
         sources: ['creatine-myths-2021'],
       },
       {
-        text: '研究中健康者每天最多 30 g、長達 5 年，未見不良影響。',
+        text: '長短期研究（每天最多 30 g、最長 5 年，長期高劑量的資料多來自病患）都未發現對健康者或病患有不良影響。',
         sources: ['issn-creatine-2017'],
       },
     ],
@@ -523,7 +524,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
     name: '咖啡因',
     aka: ['咖啡', '無水咖啡因', '訓練前飲', 'caffeine', 'pre-workout'],
     grade: 'B',
-    oneLiner: '練前提神、小幅提升力量與耐力；一杯咖啡就有，不必另買。',
+    oneLiner: '練前提神、小幅提升力量與耐力；喝咖啡就有，不一定要另買。',
     whatItIs:
       '咖啡、茶、能量飲料裡的興奮劑，也是訓練前飲品的主要成分。能降低疲勞感與用力感；效果因人而異，和基因及平常的攝取習慣有關。',
     forYou:
@@ -552,7 +553,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
         sources: ['issn-caffeine-2021', 'ioc-supplements-2018'],
       },
       {
-        text: '食藥署建議每天咖啡因總攝取量不超過 300 mg。以 70 kg 計，3 mg/kg 約 210 mg，要一起算進當天的咖啡、茶與飲料。',
+        text: '食藥署建議每天咖啡因總攝取量不超過 300 mg。照研究劑量換算：70 kg 的人 3 mg/kg 約 210 mg，6 mg/kg 約 420 mg；體重超過 50 kg 的人用到 6 mg/kg 就會超過建議量。當天的咖啡、茶與飲料都要一起算進去。',
         sources: ['tfda-caffeine-2016'],
       },
       {
@@ -574,7 +575,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
         sources: ['tfda-caffeine-2016'],
       },
       {
-        text: '純咖啡因粉末很容易算錯劑量，曾有研究因計算錯誤給到極高劑量而造成嚴重不良反應；不要自行秤粉末。',
+        text: '劑量算錯可能很危險：曾有大學研究因計算錯誤，讓受試者吃到多達 30 g 咖啡因，出現嚴重不良反應。不要自己秤純咖啡因粉末。',
         sources: ['ioc-supplements-2018'],
       },
       {
@@ -643,16 +644,16 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
     grade: 'B',
     oneLiner: '本質是「液體熱量」，只適合三餐吃不夠、體重長不上去的人。',
     whatItIs:
-      '以碳水化合物為主、加上蛋白質的高熱量粉末，IOC 歸在「液體代餐」：每毫升約 1–1.5 kcal，蛋白質占 15–20%、碳水 50–70%。沒有特殊增肌成分，作用是讓你更容易吃到熱量盈餘。',
+      '以碳水化合物為主、加上蛋白質的高熱量粉末，成分接近 IOC 列的「液體代餐」：每毫升約 1–1.5 kcal，蛋白質占 15–20%、碳水 50–70%。沒有特殊增肌成分，作用是讓你更容易吃到熱量盈餘。',
     forYou:
       '增肌需要每天吃得比消耗多。若你偏瘦、食量小、體重好幾週都不動，可以用它補熱量；用牛奶、香蕉、燕麥自己打也有一樣的作用。體重已經穩定上升的人不需要。',
     claims: [
       {
-        text: 'ISSN：以增加瘦體組織為主的飲食，需要持續的熱量盈餘來支持合成作用與越來越大的訓練量。',
+        text: 'ISSN：以增加瘦體組織為主的飲食，最好維持持續的熱量盈餘，來支持合成作用與越來越大的訓練量；熱量不足時仍可能長肌肉，但效果較差。',
         sources: ['issn-diets-2017'],
       },
       {
-        text: '未受訓者每天多喝約 2010 kcal 的補充飲、訓練 8 週，瘦體組織增加約 3 kg；熱量相同但幾乎只有碳水的飲品效果相近，顯示關鍵是熱量而非特殊配方。',
+        text: '未受訓者每天多喝約 2010 kcal 的補充飲、訓練 8 週，瘦體組織增加約 3 kg；熱量相同但幾乎只有碳水的飲品效果相近。研究者認為，受試者原本的蛋白質已經夠（約 1.6 g/kg），所以關鍵在總熱量，不在特殊配方。',
         sources: ['issn-diets-2017'],
       },
       {
@@ -680,7 +681,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
     ],
     safety: [
       {
-        text: '熱量盈餘也會增加脂肪：菁英運動員每天多吃約 544 kcal、12 週後脂肪增加約 1.1 kg（對照組 0.2 kg）。',
+        text: '熱量盈餘也會增加脂肪：菁英運動員每天比平常多吃約 544 kcal、8–12 週後，脂肪增加約 1.1 kg；自由進食組只增加 0.2 kg。',
         sources: ['issn-diets-2017'],
       },
       {
@@ -688,7 +689,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
         sources: ['issn-diets-2017'],
       },
       {
-        text: '補給品不需事先證明效果、安全或品質，成分越複雜的產品越要留意標示與污染風險。',
+        text: '多數國家的補給品不需事先證明效果、安全或品質；成分越複雜的產品，越要留意標示與污染風險。',
         sources: ['ioc-supplements-2018'],
       },
     ],
@@ -715,7 +716,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
         sources: ['vitd-meta-2023'],
       },
       {
-        text: '維生素 D 不足和較高的壓力性骨折風險有關，必要時補充可能降低風險。',
+        text: '維生素 D 不足和較高的壓力性骨折風險有關；是否需要補充，請先抽血並由醫師判斷。',
         sources: ['ioc-supplements-2018'],
       },
       {
@@ -831,7 +832,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
     ],
     dose: [
       {
-        text: '選低劑量的產品，並把飲食與所有補充品加總，不超過國健署 19 歲以上上限：維生素 A 3000 μg RE、維生素 D 50 μg、維生素 B6 80 mg、鐵 40 mg、鋅 35 mg。',
+        text: '選低劑量的產品，並把飲食與所有補充品加總，不超過國健署 19 歲以上上限：維生素 A 3000 μg RE、維生素 D 50 μg、維生素 B6 80 mg、鋅 35 mg；鐵是強化食品與補充品合計不超過 40 mg。',
         sources: ['hpa-ul-2022', 'issn-review-2018'],
       },
     ],
@@ -868,7 +869,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
       '新手增肌不需要。把買 BCAA／EAA 的錢拿去買乳清，或多吃一份肉、蛋、奶、豆製品，證據更充分。',
     claims: [
       {
-        text: '合成肌肉蛋白需要全部必需胺基酸；單吃 BCAA 無法支持肌肉蛋白合成增加，少數人體研究反而觀察到合成下降。',
+        text: '合成肌肉蛋白需要全部必需胺基酸，單靠 BCAA 撐不起有意義的合成；2017 年的回顧只找到兩項人體研究，都是靜脈輸注 BCAA，結果合成反而下降。',
         sources: ['bcaa-review-2017'],
       },
       {
@@ -890,7 +891,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
     ],
     dose: [
       {
-        text: '每日總蛋白質達 1.4–2.0 g/kg、每餐 20–40 g 優質蛋白質（含白胺酸 700–3000 mg）時，研究顯示再多補也沒有額外增肌效果，不需另外補 BCAA／EAA。',
+        text: '目前沒有研究顯示，蛋白質已經吃夠（每日 1.4–2.0 g/kg、每餐 20–40 g、含白胺酸 700–3000 mg）的人再加 BCAA／EAA 能多長肌肉；統合分析也發現，每日總蛋白質超過約 1.6 g/kg 後再補蛋白質就沒有額外效果。因此不需要另外買。',
         sources: ['issn-protein-2017', 'protein-meta-2018'],
       },
       {
@@ -923,7 +924,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
         sources: ['glutamine-rct-2001'],
       },
       {
-        text: 'ISSN：沒有科學證據支持麩醯胺酸能增加瘦體組織或肌肉表現；高劑量（0.3 g/kg）也沒有增加腿推、臥推次數。',
+        text: 'ISSN：沒有令人信服的證據支持麩醯胺酸能增加瘦體組織或肌肉表現；高劑量（0.3 g/kg）也沒有增加腿推、臥推次數。',
         sources: ['issn-review-2018'],
       },
       {
@@ -980,7 +981,7 @@ export const SUPPLEMENT_CARDS: SupplementCard[] = [
     ],
     dose: [
       {
-        text: '研究用法：每天 3 g（約 38 mg/kg），分 3 次吃；在新訓練期開始前至少 2 週開始。',
+        text: '研究用法：每天 3 g，分 3 次吃（立場聲明另以每公斤體重 38 mg 表示，約等於 80 kg 的人吃 3 g）；在新訓練期開始前至少 2 週開始。',
         sources: ['issn-hmb-2013'],
       },
       {
