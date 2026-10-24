@@ -58,7 +58,7 @@ export async function stalledExercises(exerciseIds: string[], settings: Settings
     const r = detectStall(
       series.map((p) => ({ date: p.date, bestE1rm: p.best })),
       today,
-      { sessions: settings.training.stallSessions, threshold: 1.01, minDays: settings.training.stallMinDays },
+      { sessions: settings.training.stallSessions, threshold: 1 + settings.training.stallThresholdPct / 100, minDays: settings.training.stallMinDays },
       diffDays,
     );
     if (r.stalled && r.daysSincePr != null) out.push({ exerciseId: id, daysSincePr: r.daysSincePr });

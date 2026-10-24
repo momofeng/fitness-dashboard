@@ -208,9 +208,22 @@ export function roundingStepFor(equipment: Equipment, prefs: RoundingPrefs): num
   }
 }
 
-/** 磅制：以常見的 lb 槓片／啞鈴級距計算，並把公斤的加重量換成整齊的磅數 */
-export function lbStepFor(equipment: Equipment): number {
-  return equipment === 'bodyweight' || equipment === 'band' ? 2.5 : 5;
+/**
+ * 磅制：以常見的 lb 槓片／啞鈴級距計算，並把公斤的加重量換成整齊的磅數。
+ * 槓鈴類以最小 lb 槓片 ×2 為級距（預設 2.5 lb → 5 lb）。
+ */
+export function lbStepFor(equipment: Equipment, smallestPlateLb = 2.5): number {
+  switch (equipment) {
+    case 'barbell':
+    case 'smith':
+    case 'ezbar':
+      return smallestPlateLb * 2;
+    case 'bodyweight':
+    case 'band':
+      return 2.5;
+    default:
+      return 5;
+  }
 }
 
 export function kgIncrementToLb(incKg: number): number {

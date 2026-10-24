@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { ACTIVITY_LEVELS } from '../../core/nutrition';
-import { fmt } from '../../core/units';
+import { fmt, fromDisplayWeight, toDisplayWeight } from '../../core/units';
+import { DEFAULT_WARMUP } from '../../db/defaults';
+import { LIMITS } from '../../db/limits';
 import { updateSettings } from '../../db/repo/settings';
 import type { Settings } from '../../db/schemas';
-import { Button } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
 import { Field, NumberInput, Segmented, TextField, Toggle } from '../../ui/Fields';
 import { ListRow, PageHeader, Section } from '../../ui/Layout';
 import { useTargets } from '../shared/useToday';
@@ -161,6 +163,18 @@ export default function SettingsPage() {
             <Field label="停滯判定：至少幾天">
               <NumberInput ariaLabel="停滯判定天數" value={s.training.stallMinDays} decimals={0} min={0} max={120} suffix="天" onChange={(v) => v != null && set({ training: { stallMinDays: Math.round(v) } })} />
             </Field>
+            <Field label="停滯門檻" hint="最近幾次都沒超過先前最佳的這個 %，才算停滯">
+              <NumberInput
+                ariaLabel="停滯門檻百分比"
+                value={s.training.stallThresholdPct}
+                step={0.5}
+                decimals={1}
+                min={LIMITS.stallThresholdPct[0]}
+                max={LIMITS.stallThresholdPct[1]}
+                suffix="%"
+                onChange={(v) => v != null && set({ training: { stallThresholdPct: v } })}
+              />
+            </Field>
             <Field label="每週組數參考下限">
               <NumberInput ariaLabel="每週組數下限" value={s.training.volumeMin} decimals={0} min={0} max={50} suffix="組" onChange={(v) => v != null && set({ training: { volumeMin: v } })} />
             </Field>
@@ -168,6 +182,7 @@ export default function SettingsPage() {
               <NumberInput ariaLabel="每週組數上限" value={s.training.volumeMax} decimals={0} min={0} max={60} suffix="組" onChange={(v) => v != null && set({ training: { volumeMax: v } })} />
             </Field>
           </div>
+          <WarmupEditor s={s} />
           <Toggle label="訓練中螢幕保持亮著" checked={s.training.keepAwake} onChange={(v) => set({ training: { keepAwake: v } })} />
           <Toggle label="休息結束響鈴" checked={s.training.sound} onChange={(v) => set({ training: { sound: v } })} />
           <Toggle label="休息結束震動" checked={s.training.vibrate} onChange={(v) => set({ training: { vibrate: v } })} />
@@ -223,15 +238,115 @@ export default function SettingsPage() {
   );
 }
 
+/** 暖身組方案：空槓次數＋各階段百分比與次數 */
+function WarmupEditor({ s }: { s: Settings }) {
+  const w = s.training.warmup;
+  const save = (next: Settings['training']['warmup']) => updateSettings({ training: { warmup: next } });
+  const setStep = (i: number, patch: Partial<{ pct: number; reps: number }>) => save({ ...w, steps: w.steps.map((st, j) => (j === i ? { ...st, ...patch } : st)) });
+  const maxSteps = LIMITS.warmupSteps[1];
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-seam p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-chalk-2">暖身組（槓鈴複合動作）</p>
+        <Button size="sm" variant="ghost" onClick={() => void save(structuredClone(DEFAULT_WARMUP))}>
+          恢復預設
+        </Button>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
+        <span className="text-sm text-chalk-3">空槓</span>
+        <NumberInput ariaLabel="空槓組次數" value={w.barReps} decimals={0} min={LIMITS.warmupBarReps[0]} max={LIMITS.warmupBarReps[1]} suffix="下" onChange={(v) => v != null && void save({ ...w, barReps: Math.round(v) })} />
+        <span />
+        {w.steps.map((st, i) => (
+          <div key={i} className="contents">
+            <NumberInput ariaLabel={`暖身第 ${i + 1} 步百分比`} value={st.pct} step={5} decimals={0} min={LIMITS.warmupPct[0]} max={LIMITS.warmupPct[1]} suffix="%" onChange={(v) => v != null && void setStep(i, { pct: Math.round(v) })} />
+            <NumberInput ariaLabel={`暖身第 ${i + 1} 步次數`} value={st.reps} decimals={0} min={LIMITS.warmupReps[0]} max={LIMITS.warmupReps[1]} suffix="下" onChange={(v) => v != null && void setStep(i, { reps: Math.round(v) })} />
+            <IconButton icon="x" label={`移除暖身第 ${i + 1} 步`} onClick={() => void save({ ...w, steps: w.steps.filter((_, j) => j !== i) })} />
+          </div>
+        ))}
+      </div>
+      <Button
+        size="sm"
+        icon="plus"
+        disabled={w.steps.length >= maxSteps}
+        onClick={() => void save({ ...w, steps: [...w.steps, { pct: Math.min(LIMITS.warmupPct[1], (w.steps.at(-1)?.pct ?? 30) + 10), reps: 2 }] })}
+      >
+        新增一步
+      </Button>
+      <p className="text-cap text-chalk-4">百分比是正式組重量的幾 %；與前一組差不到 10% 或太接近正式組的會自動略過。空槓填 0 表示不做空槓組。</p>
+    </div>
+  );
+}
+
+type PlateRow = { w: number; pairs: number };
+
+function PlateList({ unit, plates, onChange }: { unit: 'kg' | 'lb'; plates: PlateRow[]; onChange: (next: PlateRow[]) => void }) {
+  const [newW, setNewW] = useState<number | null>(null);
+  const max = unit === 'lb' ? LIMITS.plateLb[1] : 50;
+  const min = unit === 'lb' ? LIMITS.plateLb[0] : 0.25;
+  const valid = newW != null && newW >= min && newW <= max && !plates.some((p) => p.w === newW);
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-medium text-chalk-2">可用槓片（每種有幾對）</p>
+      {plates.map((p, i) => (
+        <div key={`${p.w}-${i}`} className="flex items-center gap-3">
+          <span className="num w-20 shrink-0 font-semibold">
+            {fmt(p.w, 2)} {unit}
+          </span>
+          <NumberInput
+            ariaLabel={`${p.w} ${unit === 'lb' ? '磅' : '公斤'}槓片對數`}
+            value={p.pairs}
+            decimals={0}
+            min={0}
+            max={LIMITS.platePairs[1]}
+            stepper
+            suffix="對"
+            className="flex-1"
+            onChange={(v) => v != null && onChange(plates.map((q, j) => (j === i ? { ...q, pairs: Math.round(v) } : q)))}
+          />
+        </div>
+      ))}
+      <div className="flex items-center gap-2 pt-1">
+        <NumberInput ariaLabel="新增槓片重量" value={newW} decimals={2} min={0} max={max} suffix={unit} placeholder="其他重量" className="flex-1" onChange={setNewW} />
+        <Button
+          icon="plus"
+          disabled={!valid}
+          onClick={() => {
+            if (valid) onChange([...plates, { w: newW, pairs: 2 }]);
+            setNewW(null);
+          }}
+        >
+          新增
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function EquipmentCard({ s }: { s: Settings }) {
-  const [newKg, setNewKg] = useState<number | null>(null);
-  const plates = s.equipment.plates;
-  const setPlates = (next: Settings['equipment']['plates']) => updateSettings({ equipment: { plates: [...next].sort((a, b) => b.kg - a.kg) } });
+  const lb = s.units.weight === 'lb';
+  const sortDesc = (rows: PlateRow[]) => [...rows].sort((a, b) => b.w - a.w);
   return (
     <Card>
-      <div className="grid grid-cols-3 gap-3">
-        <Field label="槓重">
-          <NumberInput ariaLabel="槓重" value={s.equipment.barKg} decimals={2} min={0} max={50} suffix="kg" onChange={(v) => v != null && updateSettings({ equipment: { barKg: v } })} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {lb ? (
+          <Field label="槓重">
+            <NumberInput ariaLabel="槓重" value={s.equipment.barLb} decimals={2} min={LIMITS.barLb[0]} max={LIMITS.barLb[1]} suffix="lb" onChange={(v) => v != null && updateSettings({ equipment: { barLb: v } })} />
+          </Field>
+        ) : (
+          <Field label="槓重">
+            <NumberInput ariaLabel="槓重" value={s.equipment.barKg} decimals={2} min={0} max={50} suffix="kg" onChange={(v) => v != null && updateSettings({ equipment: { barKg: v } })} />
+          </Field>
+        )}
+        <Field label="EZ 槓重">
+          <NumberInput
+            ariaLabel="EZ 槓重"
+            value={Number(toDisplayWeight(s.equipment.ezBarKg, s.units.weight).toFixed(2))}
+            decimals={2}
+            min={0}
+            max={Number(toDisplayWeight(LIMITS.ezBarKg[1], s.units.weight).toFixed(2))}
+            suffix={s.units.weight}
+            onChange={(v) => v != null && updateSettings({ equipment: { ezBarKg: Math.min(LIMITS.ezBarKg[1], fromDisplayWeight(v, s.units.weight)) } })}
+          />
         </Field>
         <Field label="啞鈴級距">
           <NumberInput ariaLabel="啞鈴級距" value={s.equipment.dumbbellStepKg} decimals={2} min={0.5} max={10} suffix="kg" onChange={(v) => v != null && updateSettings({ equipment: { dumbbellStepKg: v } })} />
@@ -240,38 +355,20 @@ function EquipmentCard({ s }: { s: Settings }) {
           <NumberInput ariaLabel="器械級距" value={s.equipment.machineStepKg} decimals={2} min={0.5} max={20} suffix="kg" onChange={(v) => v != null && updateSettings({ equipment: { machineStepKg: v } })} />
         </Field>
       </div>
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-chalk-2">可用槓片（每種有幾對）</p>
-        {plates.map((p, i) => (
-          <div key={`${p.kg}-${i}`} className="flex items-center gap-3">
-            <span className="num w-20 shrink-0 font-semibold">{fmt(p.kg, 2)} kg</span>
-            <NumberInput
-              ariaLabel={`${p.kg} 公斤槓片對數`}
-              value={p.pairs}
-              decimals={0}
-              min={0}
-              max={20}
-              stepper
-              suffix="對"
-              className="flex-1"
-              onChange={(v) => v != null && setPlates(plates.map((q, j) => (j === i ? { ...q, pairs: Math.round(v) } : q)))}
-            />
-          </div>
-        ))}
-        <div className="flex items-center gap-2 pt-1">
-          <NumberInput ariaLabel="新增槓片重量" value={newKg} decimals={2} min={0} max={50} suffix="kg" placeholder="其他重量" className="flex-1" onChange={setNewKg} />
-          <Button
-            icon="plus"
-            disabled={!newKg || newKg <= 0 || plates.some((p) => p.kg === newKg)}
-            onClick={() => {
-              if (newKg && newKg > 0) setPlates([...plates, { kg: newKg, pairs: 2 }]);
-              setNewKg(null);
-            }}
-          >
-            新增
-          </Button>
-        </div>
-      </div>
+      {lb ? (
+        <PlateList
+          unit="lb"
+          plates={s.equipment.platesLb.map((p) => ({ w: p.lb, pairs: p.pairs }))}
+          onChange={(rows) => void updateSettings({ equipment: { platesLb: sortDesc(rows).map((r) => ({ lb: r.w, pairs: r.pairs })) } })}
+        />
+      ) : (
+        <PlateList
+          unit="kg"
+          plates={s.equipment.plates.map((p) => ({ w: p.kg, pairs: p.pairs }))}
+          onChange={(rows) => void updateSettings({ equipment: { plates: sortDesc(rows).map((r) => ({ kg: r.w, pairs: r.pairs })) } })}
+        />
+      )}
+      <p className="text-cap text-chalk-4">{lb ? '磅制使用 lb 槓片計算配重；切回公斤會改用公斤槓片。' : '切換成磅制後會改用磅的槓片設定。'}</p>
     </Card>
   );
 }

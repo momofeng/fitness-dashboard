@@ -34,13 +34,16 @@ export default function AddFood() {
   const custom = useLiveQuery(() => db.foodsCustom.toArray(), []);
   const templates = useLiveQuery(() => db.mealTemplates.toArray(), []);
   const usage = useLiveQuery(() => db.foodUsage.orderBy('lastUsedAt').reverse().limit(200).toArray(), []);
+  // 最常吃：用 count 索引，很久以前常吃的也找得到
+  const frequent = useLiveQuery(() => db.foodUsage.orderBy('count').reverse().limit(100).toArray(), []);
+  const [listMode, setListMode] = useState<'recent' | 'frequent'>('recent');
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   const customItems = useMemo(() => (custom ?? []).map(customToItem), [custom]);
-  const usageMap = useMemo(() => new Map((usage ?? []).map((u) => [u.foodKey, u])), [usage]);
+  const usageMap = useMemo(() => new Map([...(frequent ?? []), ...(usage ?? [])].map((u) => [u.foodKey, u])), [usage, frequent]);
   const results = useMemo(() => {
     if (!q.trim()) return [];
     const pool = [...customItems, ...(tfda?.items ?? [])];
@@ -52,7 +55,7 @@ export default function AddFood() {
   );
 
   const lookupItem = (key: string): FoodItem | undefined => (key.startsWith('custom:') ? customItems.find((c) => c.key === key) : tfda?.byKey.get(key));
-  const recent = (usage ?? [])
+  const recent = ((listMode === 'recent' ? usage : frequent) ?? [])
     .filter((u) => !u.foodKey.startsWith('meal:'))
     .map((u) => ({ u, item: lookupItem(u.foodKey) }))
     .filter((x): x is { u: (typeof x)['u']; item: FoodItem } => !!x.item)
@@ -124,10 +127,29 @@ export default function AddFood() {
           {(templates ?? []).length > 0 && <TemplateList templates={templates ?? []} onPick={setPickedMeal} />}
           {recent.length > 0 && (
             <section className="flex flex-col gap-2">
-              <h2 className="label px-1">最近吃過</h2>
+              <div className="flex items-center justify-between gap-3 px-1">
+                <h2 className="label">{listMode === 'recent' ? '最近吃過' : '最常吃'}</h2>
+                <div className="w-40">
+                  <Segmented
+                    size="sm"
+                    ariaLabel="排序"
+                    value={listMode}
+                    options={[
+                      { value: 'recent', label: '最近' },
+                      { value: 'frequent', label: '最常吃' },
+                    ]}
+                    onChange={setListMode}
+                  />
+                </div>
+              </div>
               <div className="card divide-y divide-seam overflow-hidden">
                 {recent.map(({ u, item }) => (
-                  <FoodRow key={item.key} item={item} hint={u.lastUnit === 'g' ? `上次 ${fmt(u.lastQty, 0)} g` : `上次 ${fmt(u.lastQty, 2)} 份`} onClick={() => setPicked(item)} />
+                  <FoodRow
+                    key={item.key}
+                    item={item}
+                    hint={listMode === 'frequent' ? `吃過 ${u.count} 次` : u.lastUnit === 'g' ? `上次 ${fmt(u.lastQty, 0)} g` : `上次 ${fmt(u.lastQty, 2)} 份`}
+                    onClick={() => setPicked(item)}
+                  />
                 ))}
               </div>
             </section>

@@ -163,22 +163,32 @@ export interface WarmupSet {
   reps: number;
 }
 
+/** 暖身方案（★ 可在設定頁調整）：空槓次數（0 = 不做空槓組）與各階段的百分比、次數 */
+export interface WarmupScheme {
+  barReps: number;
+  steps: Array<{ pct: number; reps: number }>;
+}
+
+export const DEFAULT_WARMUP_SCHEME: WarmupScheme = {
+  barReps: 10,
+  steps: [
+    { pct: 40, reps: 5 },
+    { pct: 60, reps: 3 },
+    { pct: 80, reps: 2 },
+  ],
+};
+
 /**
- * 暖身組：空槓×10、40%×5、60%×3、80%×2。
+ * 暖身組：預設空槓×10、40%×5、60%×3、80%×2。
  * 低於空槓、與前一組差不到 10%、或太接近正式組重量的就略過。
- * barKg=0（啞鈴、器械）時不排空槓組。
+ * barKg=0（啞鈴、器械）時不排空槓組。重量單位由呼叫端決定（kg 或 lb，與 stepKg 相同即可）。
  */
-export function warmupSets(workingKg: number, barKg: number, stepKg: number): WarmupSet[] {
+export function warmupSets(workingKg: number, barKg: number, stepKg: number, scheme: WarmupScheme = DEFAULT_WARMUP_SCHEME): WarmupSet[] {
   if (!(workingKg > 0)) return [];
-  const plan: Array<[number, number]> = [
-    [0.4, 5],
-    [0.6, 3],
-    [0.8, 2],
-  ];
   const out: WarmupSet[] = [];
-  if (barKg > 0 && workingKg >= barKg * 1.25) out.push({ weightKg: barKg, reps: 10 });
-  for (const [pct, reps] of plan) {
-    const w = Math.max(barKg, roundTo(workingKg * pct, stepKg));
+  if (barKg > 0 && scheme.barReps > 0 && workingKg >= barKg * 1.25) out.push({ weightKg: barKg, reps: scheme.barReps });
+  for (const { pct, reps } of [...scheme.steps].sort((a, b) => a.pct - b.pct)) {
+    const w = Math.max(barKg, roundTo((workingKg * pct) / 100, stepKg));
     const prev = out.at(-1)?.weightKg ?? 0;
     if (w <= 0 || w >= workingKg * 0.95) continue;
     if (prev > 0 && w < prev * 1.1) continue;

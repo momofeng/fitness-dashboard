@@ -39,7 +39,7 @@ export default function TrainHome() {
   const week = useLiveQuery(() => (settings ? weekVolume(today, settings.weekStart) : undefined), [today, settings?.weekStart]);
   const stalls = useLiveQuery(
     () => (settings && program ? stalledExercises(program.days.flatMap((d) => d.slots.map((s) => s.exerciseId)), settings, today) : []),
-    [program?.id, today, settings?.training.stallSessions, settings?.training.stallMinDays],
+    [program?.id, today, settings?.training.stallSessions, settings?.training.stallMinDays, settings?.training.stallThresholdPct],
   );
 
   if (!settings) return null;

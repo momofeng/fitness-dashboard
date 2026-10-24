@@ -7,13 +7,13 @@ import { computePrs, type DatedSet } from '../../core/training/strength';
 import { fmt, toDisplayWeight } from '../../core/units';
 import { db } from '../../db/db';
 import { useLatestWeight } from '../../db/repo/body';
-import { useExerciseLookup } from '../../db/repo/exercises';
+import { saveExercisePref, useExerciseLookup, type PrefPatch } from '../../db/repo/exercises';
 import { useSettings } from '../../db/repo/settings';
 import { exerciseHistory } from '../../db/repo/workouts';
 import { Button } from '../../ui/Button';
 import { Field, NumberInput } from '../../ui/Fields';
 import { EmptyState, PageHeader, Section } from '../../ui/Layout';
-import { toastUndo } from '../../ui/toast';
+import { toast, toastUndo } from '../../ui/toast';
 import { ExerciseForm } from './ExerciseLibrary';
 import { exerciseSeries } from './trainingStats';
 
@@ -44,8 +44,8 @@ export default function ExerciseDetail() {
     bodyweightKg: bw ?? null,
   });
 
-  const savePref = (patch: { note?: string; restSec?: number; incrementKg?: number }) =>
-    db.exercisePrefs.put({ ...(pref ?? { exerciseId: id }), ...patch, updatedAt: Date.now() });
+  const savePref = (patch: PrefPatch) =>
+    saveExercisePref(id, patch).catch((e: unknown) => toast(e instanceof Error ? e.message : String(e), { tone: 'error' }));
 
   // 依場次分組的紀錄（新到舊）
   const byWorkout = new Map<string, typeof sets>();
@@ -144,6 +144,7 @@ export default function ExerciseDetail() {
               <NumberInput ariaLabel="每次加重" value={pref?.incrementKg ?? null} decimals={2} min={0} max={20} placeholder="預設" onChange={(v) => void savePref({ incrementKg: v ?? undefined })} />
             </Field>
           </div>
+          <RepRangePref key={pref?.updatedAt ?? 0} repMin={pref?.repMin} repMax={pref?.repMax} fallback={ex.defaultRepRange} onSave={(repMin, repMax) => void savePref({ repMin, repMax })} />
         </div>
       </Section>
 
@@ -182,5 +183,44 @@ export default function ExerciseDetail() {
       )}
       {editing && custom && <ExerciseForm initial={custom} onClose={() => setEditing(false)} />}
     </div>
+  );
+}
+
+/** 我的次數區間：兩格都填才生效，覆寫課表的次數；清空就回到課表設定 */
+function RepRangePref({
+  repMin,
+  repMax,
+  fallback,
+  onSave,
+}: {
+  repMin: number | undefined;
+  repMax: number | undefined;
+  fallback: [number, number];
+  onSave: (repMin: number | undefined, repMax: number | undefined) => void;
+}) {
+  const [lo, setLo] = useState<number | null>(repMin ?? null);
+  const [hi, setHi] = useState<number | null>(repMax ?? null);
+  const bad = (v: number | null) => v != null && !(Number.isInteger(v) && v >= 1 && v <= 100);
+  const error =
+    bad(lo) || bad(hi)
+      ? '次數請輸入 1–100 的整數'
+      : lo != null && hi != null && lo > hi
+        ? '下限不能大於上限'
+        : (lo == null) !== (hi == null)
+          ? '兩格都填才會生效'
+          : null;
+  const commit = (a: number | null, b: number | null) => {
+    if (bad(a) || bad(b)) return;
+    if (a == null && b == null) return onSave(undefined, undefined);
+    if (a != null && b != null && a <= b) onSave(a, b);
+  };
+  return (
+    <Field label="我的次數區間" hint={error ? undefined : repMin != null ? `已覆寫課表：${repMin}–${repMax} 下` : `空白＝依課表（動作預設 ${fallback[0]}–${fallback[1]} 下）`} error={error}>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+        <NumberInput ariaLabel="次數下限" value={lo} decimals={0} min={1} max={100} clamp={false} placeholder="下限" onChange={(v) => { setLo(v); commit(v, hi); }} />
+        <span className="text-chalk-3">–</span>
+        <NumberInput ariaLabel="次數上限" value={hi} decimals={0} min={1} max={100} clamp={false} placeholder="上限" onChange={(v) => { setHi(v); commit(lo, v); }} />
+      </div>
+    </Field>
   );
 }

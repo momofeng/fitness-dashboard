@@ -56,7 +56,7 @@ export const STORES_V1 = {
   photoBlobs: 'id',
 } as const;
 
-/** v2：補 v1 計畫中漏掉的索引，並加上 Round 2 查詢用的索引（只新增索引，不改主鍵） */
+/** v2：補 v1 計畫中漏掉的索引（自建動作依主要肌群、食物依使用次數），並加上 Round 2 查詢用的索引（只新增索引，不改主鍵） */
 export const STORES_V2 = {
   ...STORES_V1,
   exercisesCustom: 'id, nameZh, *primary',

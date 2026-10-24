@@ -2,10 +2,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { EQUIPMENT_LABEL, MUSCLE_LABEL } from '../../content/types';
-import { roundingStepFor } from '../../core/training/progression';
+import { lbStepFor, roundingStepFor } from '../../core/training/progression';
 import { warmupSets } from '../../core/training/strength';
 import { tonnage } from '../../core/training/volume';
-import { fmt, fromDisplayWeight, toDisplayWeight } from '../../core/units';
+import { fmt, fromDisplayWeight, roundTo, toDisplayWeight } from '../../core/units';
 import { db } from '../../db/db';
 import { smallestPlateKg } from '../../db/defaults';
 import { LIMITS } from '../../db/limits';
@@ -37,9 +37,8 @@ import { Sheet } from '../../ui/Sheet';
 import { toast, toastUndo } from '../../ui/toast';
 import { ExercisePicker } from './ExercisePicker';
 import { PlateBar, PlateCalculator } from './PlateBar';
+import { BARBELL_EQUIPMENT, plateSetup } from './plates';
 import { RestTimer } from './RestTimer';
-
-const BARBELL = new Set(['barbell', 'smith', 'ezbar']);
 
 function elapsedText(ms: number) {
   const m = Math.floor(ms / 60000);
@@ -349,24 +348,42 @@ function ExerciseCard({
   const unit = settings.units.weight;
   const [showWarmup, setShowWarmup] = useState(false);
   const [plateOpen, setPlateOpen] = useState(false);
+  const [dropDraft, setDropDraft] = useState(false);
   const last = useLiveQuery(() => lastSessionSets(item.exerciseId, workout.id), [item.exerciseId, workout.id]);
   const state = useLiveQuery(() => db.progressionState.get(item.exerciseId), [item.exerciseId]);
   const pref = useLiveQuery(() => db.exercisePrefs.get(item.exerciseId), [item.exerciseId]);
 
   const working = sets.filter((s) => s.kind === 'working');
   const warmups = sets.filter((s) => s.kind === 'warmup');
+  const drops = sets.filter((s) => s.kind === 'drop');
   const lastWorking = (last ?? []).filter((s) => s.kind === 'working');
   const rows = Math.max(item.sets, working.length);
-  const isBarbell = ex ? BARBELL.has(ex.equipment) : false;
+  const isBarbell = ex ? BARBELL_EQUIPMENT.has(ex.equipment) : false;
+  // 槓片與暖身都以使用者單位計算（磅制用 lb 槓片、EZ 槓用自己的槓重），記錄時再換回公斤
+  const setup = plateSetup(settings, ex?.equipment ?? 'barbell');
   const step = ex
-    ? roundingStepFor(ex.equipment, {
-        smallestPlateKg: smallestPlateKg(settings),
-        dumbbellStepKg: settings.equipment.dumbbellStepKg,
-        machineStepKg: settings.equipment.machineStepKg,
-      })
+    ? unit === 'lb'
+      ? lbStepFor(ex.equipment, setup.step / 2)
+      : roundingStepFor(ex.equipment, {
+          smallestPlateKg: smallestPlateKg(settings),
+          dumbbellStepKg: settings.equipment.dumbbellStepKg,
+          machineStepKg: settings.equipment.machineStepKg,
+        })
     : 2.5;
   const target = item.targetWeightKg;
-  const warm = target && ex?.category === 'compound' && ex.loadType === 'external' ? warmupSets(target, isBarbell ? settings.equipment.barKg : 0, step) : [];
+  const targetU = target == null ? null : setup.toUnit(target);
+  const warm =
+    targetU && ex?.category === 'compound' && ex.loadType === 'external'
+      ? warmupSets(targetU, isBarbell ? setup.bar : 0, step, settings.training.warmup).map((w) => ({ weightKg: setup.fromUnit(w.weightKg), reps: w.reps }))
+      : [];
+  const lastLoggedWorking = working.at(-1);
+  // 遞減組預設：上一個正式組的 80%，對齊級距
+  const dropDefaults = lastLoggedWorking
+    ? {
+        weightKg: setup.fromUnit(Math.max(0, roundTo(setup.toUnit((drops.at(-1) ?? lastLoggedWorking).weightKg) * 0.8, step))),
+        reps: (drops.at(-1) ?? lastLoggedWorking).reps,
+      }
+    : { weightKg: null, reps: null };
   const repText = item.repMin === item.repMax ? `${item.repMax}` : `${item.repMin}–${item.repMax}`;
   const done = working.length >= item.sets;
 
@@ -402,11 +419,11 @@ function ExerciseCard({
         <IconButton icon="more" label={`${ex?.nameZh ?? ''} 選項`} onClick={onMenu} />
       </div>
 
-      {isBarbell && target != null && target > settings.equipment.barKg && (
-        <button type="button" onClick={() => setPlateOpen(true)} className="press mx-4 mb-2 flex items-center gap-2 rounded-md bg-well px-3 py-2 text-left">
-          <PlateBar targetKg={target} barKg={settings.equipment.barKg} stock={settings.equipment.plates} compact />
+      {isBarbell && targetU != null && targetU > setup.bar && (
+        <button type="button" onClick={() => setPlateOpen(true)} className="press mx-4 mb-2 flex items-center gap-2 rounded-md bg-well px-3 py-2 text-left" aria-label="槓片配重">
+          <PlateBar target={targetU} bar={setup.bar} stock={setup.stock} unit={setup.unit} compact />
           <span className="num min-w-0 flex-1 truncate text-sm text-chalk-3">
-            每側 {plateText(target, settings)}
+            每側 {fmt((targetU - setup.bar) / 2, 2)} {setup.unit}
           </span>
           <Icon name="chevronRight" size={16} className="text-chalk-4" />
         </button>
@@ -465,31 +482,72 @@ function ExerciseCard({
             onLog={(v) => onLog(item, v)}
           />
         ))}
-        <button
-          type="button"
-          disabled={item.sets >= LIMITS.planSets[1]}
-          onClick={() => void updatePlanItem(workout.id, index, { sets: item.sets + 1 })}
-          className="press mx-2 flex h-10 disabled:opacity-40 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2"
-        >
-          <Icon name="plus" size={16} />
-          加一組
-        </button>
+        {drops.map((d, i) => (
+          <SetRow
+            key={d.id}
+            n={i + 1}
+            label="遞"
+            name={`遞減組 ${i + 1}`}
+            logged={d}
+            defaults={{ weightKg: d.weightKg, reps: d.reps }}
+            unit={unit}
+            useRir={settings.training.useRir}
+            isNext={false}
+            onLog={(v) => onLog(item, v, 'drop')}
+          />
+        ))}
+        {dropDraft && lastLoggedWorking && (
+          <SetRow
+            key={`drop-draft-${drops.length}`}
+            n={drops.length + 1}
+            label="遞"
+            name={`遞減組 ${drops.length + 1}`}
+            logged={undefined}
+            defaults={dropDefaults}
+            unit={unit}
+            useRir={settings.training.useRir}
+            isNext
+            onLog={async (v) => {
+              await onLog(item, v, 'drop');
+              setDropDraft(false);
+            }}
+          />
+        )}
+        <div className="mx-2 grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            disabled={item.sets >= LIMITS.planSets[1]}
+            onClick={() => void updatePlanItem(workout.id, index, { sets: item.sets + 1 })}
+            className="press flex h-10 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2 disabled:opacity-40"
+          >
+            <Icon name="plus" size={16} />
+            加一組
+          </button>
+          <button
+            type="button"
+            disabled={!lastLoggedWorking || dropDraft}
+            onClick={() => setDropDraft(true)}
+            title={lastLoggedWorking ? '做完正式組後立刻減重再做到力竭；不列入進步規則與 PR' : '先完成一組正式組'}
+            className="press flex h-10 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2 disabled:opacity-40"
+          >
+            <Icon name="plus" size={16} />
+            遞減組
+          </button>
+        </div>
+        {dropDraft && <p className="px-2 text-cap text-chalk-4">遞減組：正式組後立刻減重、做到接近力竭。不列入進步規則與 PR。</p>}
       </div>
 
       <Sheet open={plateOpen} onClose={() => setPlateOpen(false)} title="槓片配重">
-        {target != null && <PlateCalculator initialKg={target} settings={settings} />}
+        {target != null && <PlateCalculator initialKg={target} settings={settings} equipment={ex?.equipment === 'ezbar' ? 'ezbar' : 'barbell'} />}
       </Sheet>
     </section>
   );
 }
 
-function plateText(targetKg: number, s: Settings) {
-  const side = (targetKg - s.equipment.barKg) / 2;
-  return side > 0 ? `${fmt(side, 2)} kg` : '—';
-}
-
 function SetRow({
   n,
+  label,
+  name = `第 ${n} 組`,
   logged,
   defaults,
   unit,
@@ -498,6 +556,10 @@ function SetRow({
   onLog,
 }: {
   n: number;
+  /** 顯示在最左欄（預設是組號） */
+  label?: string;
+  /** 無障礙名稱與提示用，例如「第 2 組」「遞減組 1」 */
+  name?: string;
   logged: WorkoutSet | undefined;
   defaults: { weightKg: number | null; reps: number | null };
   unit: 'kg' | 'lb';
@@ -522,7 +584,7 @@ function SetRow({
   async function toggle() {
     if (logged) {
       const removed = await deleteSet(logged.id);
-      if (removed) toastUndo(`已取消第 ${n} 組`, () => restoreSet(removed));
+      if (removed) toastUndo(`已取消${name}`, () => restoreSet(removed));
       return;
     }
     if (!canLog) return;
@@ -539,9 +601,9 @@ function SetRow({
         logged ? 'bg-go-soft/60' : isNext ? 'bg-iron-2 ring-1 ring-seam-strong' : ''
       }`}
     >
-      <span className={`num text-center text-base font-semibold ${logged ? 'text-go' : 'text-chalk-3'}`}>{n}</span>
+      <span className={`num text-center font-semibold ${label ? 'text-sm' : 'text-base'} ${logged ? 'text-go' : 'text-chalk-3'}`}>{label ?? n}</span>
       <NumberInput
-        ariaLabel={`第 ${n} 組重量`}
+        ariaLabel={`${name}重量`}
         value={weight == null ? null : Number(toDisplayWeight(weight, unit).toFixed(2))}
         placeholder="填重量"
         decimals={2}
@@ -555,7 +617,7 @@ function SetRow({
         }}
       />
       <NumberInput
-        ariaLabel={`第 ${n} 組次數`}
+        ariaLabel={`${name}次數`}
         value={reps}
         decimals={0}
         min={0}
@@ -568,7 +630,7 @@ function SetRow({
       />
       {useRir && (
         <NumberInput
-          ariaLabel={`第 ${n} 組 RIR`}
+          ariaLabel={`${name} RIR`}
           value={rir}
           decimals={0}
           min={0}
@@ -582,7 +644,7 @@ function SetRow({
       )}
       <button
         type="button"
-        aria-label={logged ? `取消第 ${n} 組` : `完成第 ${n} 組`}
+        aria-label={logged ? `取消${name}` : `完成${name}`}
         aria-pressed={!!logged}
         disabled={!logged && !canLog}
         onClick={() => void toggle()}

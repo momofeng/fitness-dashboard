@@ -5,7 +5,9 @@ import { fmt, kgToLb, lbToKg, roundTo } from '../../core/units';
 import { useSettings } from '../../db/repo/settings';
 import { Field, NumberInput, Segmented } from '../../ui/Fields';
 import { PageHeader } from '../../ui/Layout';
+import type { Settings } from '../../db/schemas';
 import { PlateCalculator } from '../workout/PlateBar';
+import { plateSetup } from '../workout/plates';
 
 type Tool = '1rm' | 'plates' | 'warmup' | 'tdee' | 'units';
 
@@ -41,7 +43,7 @@ export default function ToolsPage() {
       <div className="card p-4">
         {tool === '1rm' && <OneRm />}
         {tool === 'plates' && <PlateCalculator initialKg={60} settings={settings} />}
-        {tool === 'warmup' && <Warmup barKg={settings.equipment.barKg} />}
+        {tool === 'warmup' && <Warmup settings={settings} />}
         {tool === 'tdee' && <TdeeTool />}
         {tool === 'units' && <Units />}
       </div>
@@ -107,15 +109,18 @@ function OneRm() {
   );
 }
 
-function Warmup({ barKg }: { barKg: number }) {
-  const [w, setW] = useState<number | null>(80);
+function Warmup({ settings }: { settings: Settings }) {
+  const setup = plateSetup(settings);
+  const u = setup.unit;
+  const [w, setW] = useState<number | null>(u === 'lb' ? 185 : 80);
   const [bar, setBar] = useState<'barbell' | 'none'>('barbell');
-  const sets = w ? warmupSets(w, bar === 'barbell' ? barKg : 0, 2.5) : [];
+  // 依設定頁的暖身方案與使用者單位計算
+  const sets = w ? warmupSets(w, bar === 'barbell' ? setup.bar : 0, bar === 'barbell' ? setup.step : u === 'lb' ? 5 : 2.5, settings.training.warmup) : [];
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="正式組重量（kg）">
-          <NumberInput ariaLabel="正式組重量" value={w} decimals={2} min={0} max={500} onChange={setW} />
+        <Field label={`正式組重量（${u}）`}>
+          <NumberInput ariaLabel="正式組重量" value={w} decimals={2} min={0} max={u === 'lb' ? 1100 : 500} onChange={setW} />
         </Field>
         <Field label="器材">
           <Segmented
@@ -134,18 +139,20 @@ function Warmup({ barKg }: { barKg: number }) {
           <li key={i} className="num flex justify-between rounded-md bg-well px-3 py-2">
             <span className="text-chalk-3">暖身 {i + 1}</span>
             <span className="font-semibold">
-              {fmt(s.weightKg)} kg × {s.reps}
+              {fmt(s.weightKg)} {u} × {s.reps}
             </span>
           </li>
         ))}
         {w != null && (
           <li className="num flex justify-between rounded-md border border-seam-strong px-3 py-2">
             <span className="text-chalk-2">正式組</span>
-            <span className="font-semibold">{fmt(w)} kg</span>
+            <span className="font-semibold">
+              {fmt(w)} {u}
+            </span>
           </li>
         )}
       </ol>
-      <p className="text-cap text-chalk-4">組間休息 30–60 秒即可，目的是熱身與練習動作，不要做到累。</p>
+      <p className="text-cap text-chalk-4">組間休息 30–60 秒即可，目的是熱身與練習動作，不要做到累。比例可在「設定 → 訓練 → 暖身組」調整。</p>
     </div>
   );
 }

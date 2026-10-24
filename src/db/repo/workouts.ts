@@ -11,7 +11,7 @@ import { fmt, kgToLb, lbToKg } from '../../core/units';
 import { loadExerciseLookup, type AnyExercise } from './exercises';
 import { db, newId } from '../db';
 import { clampTo } from '../limits';
-import { smallestPlateKg } from '../defaults';
+import { barKgFor, smallestPlateKg, smallestPlateLb } from '../defaults';
 import type { PlanItem, Program, Workout, WorkoutSet } from '../schemas';
 import { latestWeightKg } from './body';
 import { getSettings } from './settings';
@@ -45,15 +45,17 @@ export async function planItemFor(
   ]);
   const ex = get(slot.exerciseId);
   const lastWorking = last.filter((s) => s.kind === 'working');
+  // 使用者在動作頁設的次數區間優先於課表（兩個都有才生效）
+  const override = pref?.repMin != null && pref.repMax != null && pref.repMin <= pref.repMax;
+  const repMin = override ? pref.repMin! : slot.repMin;
+  const repMax = override ? pref.repMax! : slot.repMax;
   const targetReps =
-    slot.progression === 'linear'
-      ? slot.repMax
-      : Math.min(slot.repMax, Math.max(slot.repMin, state?.nextTargetReps ?? slot.repMin));
+    slot.progression === 'linear' ? repMax : Math.min(repMax, Math.max(repMin, state?.nextTargetReps ?? repMin));
   return {
     exerciseId: slot.exerciseId,
     sets: slot.sets,
-    repMin: slot.repMin,
-    repMax: slot.repMax,
+    repMin,
+    repMax,
     restSec: pref?.restSec ?? slot.restSec,
     progression: slot.progression,
     // 使用者在動作頁設的加重量優先於課表預設
@@ -280,13 +282,15 @@ export async function finishWorkout(workoutId: string): Promise<FinishResult> {
       if (!working.length || item.progression === 'none' || !ex) continue;
       const state = await db.progressionState.get(item.exerciseId);
       const step = lb
-        ? lbStepFor(ex.equipment)
+        ? lbStepFor(ex.equipment, smallestPlateLb(settings))
         : roundingStepFor(ex.equipment, {
             smallestPlateKg: smallestPlateKg(settings),
             dumbbellStepKg: settings.equipment.dumbbellStepKg,
             machineStepKg: settings.equipment.machineStepKg,
           });
       const isBar = ex.equipment === 'barbell' || ex.equipment === 'smith' || ex.equipment === 'ezbar';
+      // 減量後不低於空槓（EZ 槓用自己的槓重；磅制直接用 lb 槓重）
+      const barU = lb && ex.equipment !== 'ezbar' ? settings.equipment.barLb : toU(barKgFor(settings, ex.equipment));
       const direction = ex.loadType === 'assisted' ? -1 : 1;
       const res = nextProgression(
         {
@@ -304,7 +308,7 @@ export async function finishWorkout(workoutId: string): Promise<FinishResult> {
           deloadFactor: settings.training.deloadFactor,
         },
         step,
-        { direction, minWeight: isBar && direction === 1 ? toU(settings.equipment.barKg) : undefined, unit: lb ? 'lb' : 'kg' },
+        { direction, minWeight: isBar && direction === 1 ? barU : undefined, unit: lb ? 'lb' : 'kg' },
       );
       if (res.outcome === 'skipped') continue;
       const text = res.suggestSwitch ? `${res.message} 這是第二次減量，可以考慮改用雙重進步或換到中階課表。` : res.message;
