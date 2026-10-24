@@ -1,0 +1,284 @@
+{
+  "app": "fitness-dashboard",
+  "schemaVersion": 1,
+  "appVersion": "0.1.0",
+  "exportedAt": 1790812800000,
+  "includesPhotos": false,
+  "tables": {
+    "settings": [
+      {
+        "id": "app",
+        "onboarded": true,
+        "disclaimerAcceptedAt": 1790812800000,
+        "profile": {
+          "name": "測試",
+          "sex": "male",
+          "birthYear": 1996,
+          "heightCm": 175,
+          "activity": 1.55,
+          "experience": "novice"
+        },
+        "units": {
+          "weight": "kg"
+        },
+        "theme": "dark",
+        "nutrition": {
+          "mode": "rate",
+          "weeklyGainPct": 0.3,
+          "surplusKcal": 300,
+          "proteinPerKg": 1.8,
+          "fatPct": 25,
+          "fatMinPerKg": 0.6,
+          "waterTargetMl": 3000
+        },
+        "training": {
+          "e1rmFormula": "epley",
+          "useRir": false,
+          "failsBeforeDeload": 3,
+          "doubleFailsBeforeDeload": 2,
+          "deloadFactor": 0.9,
+          "stallSessions": 3,
+          "stallMinDays": 14,
+          "volumeMin": 10,
+          "volumeMax": 20,
+          "defaultRestSec": 120,
+          "keepAwake": true,
+          "sound": true,
+          "vibrate": true
+        },
+        "equipment": {
+          "barKg": 20,
+          "plates": [
+            {
+              "kg": 20,
+              "pairs": 4
+            },
+            {
+              "kg": 10,
+              "pairs": 2
+            },
+            {
+              "kg": 5,
+              "pairs": 2
+            },
+            {
+              "kg": 2.5,
+              "pairs": 2
+            },
+            {
+              "kg": 1.25,
+              "pairs": 2
+            }
+          ],
+          "dumbbellStepKg": 2,
+          "machineStepKg": 2.5
+        },
+        "dayCutoffHour": 4,
+        "weekStart": 1,
+        "backup": {
+          "lastExportAt": null,
+          "remindDays": 7
+        },
+        "ai": {
+          "enabled": false,
+          "provider": null,
+          "model": null
+        },
+        "updatedAt": 1790812800000
+      }
+    ],
+    "bodyMetrics": [
+      {
+        "id": "fx-b0",
+        "date": "2026-10-01",
+        "weightKg": 70,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-b1",
+        "date": "2026-10-02",
+        "weightKg": 70.05,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800001
+      },
+      {
+        "id": "fx-b2",
+        "date": "2026-10-03",
+        "weightKg": 70.1,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800002
+      },
+      {
+        "id": "fx-b3",
+        "date": "2026-10-04",
+        "weightKg": 70.15,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800003
+      },
+      {
+        "id": "fx-b4",
+        "date": "2026-10-05",
+        "weightKg": 70.2,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800004
+      },
+      {
+        "id": "fx-b6",
+        "date": "2026-10-07",
+        "weightKg": 70.3,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800006
+      },
+      {
+        "id": "fx-b7",
+        "date": "2026-10-08",
+        "weightKg": 70.35,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800007
+      },
+      {
+        "id": "fx-b8",
+        "date": "2026-10-09",
+        "weightKg": 70.4,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800008
+      },
+      {
+        "id": "fx-b9",
+        "date": "2026-10-10",
+        "weightKg": 70.45,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800009
+      },
+      {
+        "id": "fx-b10",
+        "date": "2026-10-11",
+        "weightKg": 70.5,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800010
+      },
+      {
+        "id": "fx-b11",
+        "date": "2026-10-12",
+        "weightKg": 70.55,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800011
+      },
+      {
+        "id": "fx-b12",
+        "date": "2026-10-13",
+        "weightKg": 70.6,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800012
+      },
+      {
+        "id": "fx-b13",
+        "date": "2026-10-14",
+        "weightKg": 70.65,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800013
+      },
+      {
+        "id": "fx-b14",
+        "date": "2026-10-15",
+        "weightKg": 70.7,
+        "bodyFatPct": null,
+        "circ": {},
+        "note": "",
+        "updatedAt": 1790812800014
+      }
+    ],
+    "workouts": [
+      {
+        "id": "fx-w1",
+        "date": "2026-10-03",
+        "status": "done",
+        "programId": null,
+        "dayId": null,
+        "dayName": "全身 A",
+        "plan": [],
+        "startedAt": 1790812800000,
+        "endedAt": 1790816400000,
+        "restEndsAt": null,
+        "notes": "",
+        "summary": null,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "sets": [
+      {
+        "id": "fx-s0",
+        "workoutId": "fx-w1",
+        "date": "2026-10-03",
+        "exerciseId": "barbell-back-squat",
+        "order": 0,
+        "kind": "working",
+        "weightKg": 60,
+        "reps": 5,
+        "rir": null,
+        "completedAt": 1790812800000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-s1",
+        "workoutId": "fx-w1",
+        "date": "2026-10-03",
+        "exerciseId": "barbell-back-squat",
+        "order": 1,
+        "kind": "working",
+        "weightKg": 60,
+        "reps": 5,
+        "rir": null,
+        "completedAt": 1790812980000,
+        "updatedAt": 1790812800000
+      },
+      {
+        "id": "fx-s2",
+        "workoutId": "fx-w1",
+        "date": "2026-10-03",
+        "exerciseId": "barbell-back-squat",
+        "order": 2,
+        "kind": "working",
+        "weightKg": 60,
+        "reps": 5,
+        "rir": null,
+        "completedAt": 1790813160000,
+        "updatedAt": 1790812800000
+      }
+    ],
+    "dailyLogs": [
+      {
+        "date": "2026-10-03",
+        "waterMl": 2000,
+        "updatedAt": 1790812800000
+      }
+    ]
+  }
+}

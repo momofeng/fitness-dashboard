@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dev-dist/
+data-raw/
+build/
+test-results/
+playwright-report/
+coverage/
+*.log
+.DS_Store
+.vite/

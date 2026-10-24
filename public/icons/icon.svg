@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0e0f11"/>
+  <!-- 槓鈴側視：粉筆白槓身，奧運槓片色（內側紅 25 kg、外側藍 20 kg），大片在內 -->
+  <rect x="64" y="244" width="384" height="24" rx="12" fill="#edebe6"/>
+  <rect x="122" y="178" width="30" height="156" rx="9" fill="#4c8df6"/>
+  <rect x="158" y="150" width="40" height="212" rx="10" fill="#e5534b"/>
+  <rect x="204" y="226" width="16" height="60" rx="6" fill="#edebe6"/>
+  <rect x="292" y="226" width="16" height="60" rx="6" fill="#edebe6"/>
+  <rect x="314" y="150" width="40" height="212" rx="10" fill="#e5534b"/>
+  <rect x="360" y="178" width="30" height="156" rx="9" fill="#4c8df6"/>
+</svg>

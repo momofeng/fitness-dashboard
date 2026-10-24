@@ -1,0 +1,239 @@
+@import 'tailwindcss';
+
+/*
+  方向：健身房橡膠地板上的訓練日誌。霧面深炭灰底、粉筆白文字、低對比的縫線邊框。
+  彩色只給資料：三大營養素沿用奧運槓片色（蛋白質＝紅 25 kg、碳水＝藍 20 kg、脂肪＝黃 15 kg），
+  完成＝綠（10 kg 槓片）。主要動作按鈕是「粉筆白」實心，不另設品牌色。
+  巨量營養素配色已用 dataviz 驗證腳本確認深色／淺色都通過色盲分辨。
+*/
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --floor: #0e0f11;
+  --iron: #16181b;
+  --iron-2: #1c1f23;
+  --iron-3: #24282d;
+  --well: #0a0b0c;
+  --chalk: #edebe6;
+  --chalk-2: #b4b1aa;
+  --chalk-3: #85837d;
+  --chalk-4: #5a5853;
+  --seam: rgb(237 235 230 / 0.08);
+  --seam-strong: rgb(237 235 230 / 0.15);
+  --focus: rgb(237 235 230 / 0.55);
+  --on-chalk: #0e0f11;
+  --protein: #e5534b;
+  --carbs: #4c8df6;
+  --fat: #bc8526;
+  --go: #46b864;
+  --warn: #e0a63c;
+  --danger: #f26d62;
+  --go-soft: rgb(70 184 100 / 0.14);
+  --warn-soft: rgb(224 166 60 / 0.14);
+  --danger-soft: rgb(242 109 98 / 0.14);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --floor: #f2f0eb;
+  --iron: #fbfaf7;
+  --iron-2: #ffffff;
+  --iron-3: #ecebe6;
+  --well: #e9e7e1;
+  --chalk: #1a1b1d;
+  --chalk-2: #474744;
+  --chalk-3: #6f6d68;
+  --chalk-4: #a19e97;
+  --seam: rgb(26 27 29 / 0.1);
+  --seam-strong: rgb(26 27 29 / 0.18);
+  --focus: rgb(26 27 29 / 0.5);
+  --on-chalk: #fbfaf7;
+  --protein: #d1433c;
+  --carbs: #2f6fd6;
+  --fat: #a8741c;
+  --go: #2f8f48;
+  --warn: #a8741c;
+  --danger: #c8372f;
+  --go-soft: rgb(47 143 72 / 0.12);
+  --warn-soft: rgb(168 116 28 / 0.12);
+  --danger-soft: rgb(200 55 47 / 0.1);
+}
+
+@theme inline {
+  --color-floor: var(--floor);
+  --color-iron: var(--iron);
+  --color-iron-2: var(--iron-2);
+  --color-iron-3: var(--iron-3);
+  --color-well: var(--well);
+  --color-chalk: var(--chalk);
+  --color-chalk-2: var(--chalk-2);
+  --color-chalk-3: var(--chalk-3);
+  --color-chalk-4: var(--chalk-4);
+  --color-seam: var(--seam);
+  --color-seam-strong: var(--seam-strong);
+  --color-on-chalk: var(--on-chalk);
+  --color-protein: var(--protein);
+  --color-carbs: var(--carbs);
+  --color-fat: var(--fat);
+  --color-go: var(--go);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-go-soft: var(--go-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: system-ui, -apple-system, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+
+  /* 字級：14 為基準、比例 1.25 */
+  --text-cap: 11px;
+  --text-cap--line-height: 1.35;
+  --text-sm: 12px;
+  --text-sm--line-height: 1.4;
+  --text-base: 14px;
+  --text-base--line-height: 1.5;
+  --text-h4: 16px;
+  --text-h4--line-height: 1.4;
+  --text-h3: 18px;
+  --text-h3--line-height: 1.35;
+  --text-h2: 22px;
+  --text-h2--line-height: 1.25;
+  --text-h1: 28px;
+  --text-h1--line-height: 1.2;
+  --text-display: 44px;
+  --text-display--line-height: 1;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--floor);
+    color: var(--chalk);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    overscroll-behavior-y: none;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  dialog {
+    color: inherit;
+  }
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.6);
+  }
+}
+
+@layer components {
+  .num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  /* 標籤：小字、加字距、降一階顏色 */
+  .label {
+    font-size: var(--text-cap);
+    line-height: 1.35;
+    letter-spacing: 0.06em;
+    color: var(--chalk-3);
+    font-weight: 500;
+  }
+  .card {
+    background: var(--iron);
+    border: 1px solid var(--seam);
+    border-radius: var(--radius-lg);
+  }
+  .field {
+    background: var(--well);
+    border: 1px solid var(--seam);
+    border-radius: var(--radius-md);
+    min-height: 44px;
+    padding: 0 12px;
+    width: 100%;
+    min-width: 0;
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--focus);
+  }
+  .press {
+    transition:
+      transform 120ms var(--ease-out),
+      background-color 150ms var(--ease-out),
+      opacity 150ms var(--ease-out);
+  }
+  .press:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .sheet-enter {
+    animation: sheet-in 220ms var(--ease-out);
+  }
+  .fade-enter {
+    animation: fade-in 180ms var(--ease-out);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-enter,
+  .fade-enter {
+    animation: fade-in 120ms linear;
+  }
+  .press:active:not(:disabled) {
+    transform: none;
+  }
+}
