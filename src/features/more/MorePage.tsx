@@ -20,6 +20,14 @@ const GROUPS: Array<{ title: string; items: Array<{ to: string; icon: IconName; 
     ],
   },
   {
+    title: '恢復與目標',
+    items: [
+      { to: '/recovery', icon: 'timer', label: '恢復紀錄', sub: '睡眠、精力、痠痛與減量建議' },
+      { to: '/goals', icon: 'star', label: '目標與習慣', sub: '體重、動作目標，每日習慣打卡' },
+      { to: '/calendar', icon: 'chart', label: '月曆', sub: '每天的訓練、蛋白質、睡眠與習慣' },
+    ],
+  },
+  {
     title: '工具與設定',
     items: [
       { to: '/tools', icon: 'calc', label: '小工具', sub: '1RM、槓片、暖身組、TDEE' },

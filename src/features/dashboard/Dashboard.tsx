@@ -17,6 +17,7 @@ import { Meter } from '../../ui/Layout';
 import { Sparkline } from '../../ui/Sparkline';
 import { toast } from '../../ui/toast';
 import { KcalHero, MacroBars } from '../nutrition/MacroSummary';
+import { TodayChecklist } from '../goals/TodayChecklist';
 import { AdviceCard, DeloadBanner, RecoveryEntry } from '../recovery/RecoveryParts';
 import { useRecoveryAdvice } from '../recovery/useRecoveryAdvice';
 import { exportAndShare } from '../settings/backupActions';
@@ -270,6 +271,8 @@ export default function Dashboard() {
           </div>
           <RecoveryEntry date={today} compact />
         </section>
+
+        <TodayChecklist today={today} proteinTarget={targets?.protein ?? null} waterTarget={settings.nutrition.waterTargetMl} />
       </div>
 
       <p className="pt-2 text-center text-cap text-chalk-4">數字皆為估算，不是醫療建議。{backupDays != null && !backupDue ? ` 上次備份 ${backupDays === 0 ? '今天' : `${backupDays} 天前`}。` : ''}</p>
