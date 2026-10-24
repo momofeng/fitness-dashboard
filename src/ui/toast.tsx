@@ -25,7 +25,7 @@ export function toast(message: string, opts: { actionLabel?: string; onAction?: 
 }
 
 /** 刪除後可復原 */
-export function toastUndo(message: string, undo: () => void | Promise<void>) {
+export function toastUndo(message: string, undo: () => unknown) {
   toast(message, { actionLabel: '復原', onAction: () => void undo() });
 }
 

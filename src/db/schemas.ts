@@ -126,6 +126,9 @@ export const progressionStateSchema = z.object({
   workingWeightKg: kg.nullable(),
   consecutiveFails: z.number().int().min(0),
   deloadCount: z.number().int().min(0),
+  /** 雙重進步：下次每組的目標次數 */
+  nextTargetReps: z.number().int().min(1).max(100).optional(),
+  lastMessage: z.string().max(200).optional(),
   updatedAt: ts,
 });
 export type ProgressionStateRow = z.infer<typeof progressionStateSchema>;
@@ -156,6 +159,7 @@ export const workoutSchema = z.object({
   startedAt: ts,
   endedAt: ts.nullable(),
   restEndsAt: ts.nullable(),
+  restStartedAt: ts.nullable().optional(),
   notes: z.string().max(2000),
   /** 完成時算出的摘要，例如 PR 數 */
   summary: z
