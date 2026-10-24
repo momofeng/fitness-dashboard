@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { searchItems } from '../../core/search';
 import { fmt } from '../../core/units';
 import { db } from '../../db/db';
-import { addFoodLog, computeEntry, customToItem, logMealTemplate, type FoodItem } from '../../db/repo/foods';
+import { addFoodLog, computeEntry, customToItem, findFoodByBarcode, logMealTemplate, type FoodItem } from '../../db/repo/foods';
 import { MEAL_LABEL, MEALS, type Meal, type MealTemplate } from '../../db/schemas';
 import { Button } from '../../ui/Button';
 import { Field, NumberInput, Segmented } from '../../ui/Fields';
@@ -14,6 +14,7 @@ import { Sheet } from '../../ui/Sheet';
 import { toast } from '../../ui/toast';
 import { useTargets } from '../shared/useToday';
 import { useTfda } from './foodSource';
+import { BarcodeScanner } from './BarcodeScanner';
 import { CustomFoodForm } from './MyFoods';
 import { guessMeal, QuickAddSheet } from './NutritionDay';
 
@@ -27,6 +28,9 @@ export default function AddFood() {
   const [picked, setPicked] = useState<FoodItem | null>(null);
   const [pickedMeal, setPickedMeal] = useState<MealTemplate | null>(null);
   const [creating, setCreating] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  /** 掃到但找不到的條碼：帶去建立自建食物 */
+  const [missCode, setMissCode] = useState<string | null>(null);
   const [quick, setQuick] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { db: tfda, error } = useTfda();
@@ -96,6 +100,9 @@ export default function AddFood() {
         </Button>
         <Button size="sm" icon="flame" onClick={() => setQuick(true)}>
           只填熱量
+        </Button>
+        <Button size="sm" icon="search" className="col-span-2" onClick={() => setScanOpen(true)}>
+          掃條碼（找自建食物）
         </Button>
       </div>
 
@@ -202,14 +209,44 @@ export default function AddFood() {
       )}
       {creating && (
         <CustomFoodForm
-          initialName={q.trim()}
-          onClose={() => setCreating(false)}
+          initialName={missCode ? '' : q.trim()}
+          initialBarcode={missCode ?? undefined}
+          onClose={() => {
+            setCreating(false);
+            setMissCode(null);
+          }}
           onSaved={(f) => {
             setCreating(false);
+            setMissCode(null);
             setPicked(customToItem(f));
           }}
         />
       )}
+      <BarcodeScanner
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onResult={async (code) => {
+          setScanOpen(false);
+          const food = await findFoodByBarcode(code);
+          if (food) setPicked(customToItem(food));
+          else setMissCode(code);
+        }}
+      />
+      <Sheet
+        open={missCode != null && !creating}
+        onClose={() => setMissCode(null)}
+        title="找不到這個條碼"
+        footer={
+          <Button variant="primary" block icon="plus" onClick={() => setCreating(true)}>
+            照營養標示建立這個食物
+          </Button>
+        }
+      >
+        <p className="text-base text-chalk-2">
+          條碼 <span className="num font-semibold text-chalk">{missCode}</span> 還沒有對應的自建食物。照包裝背面的營養標示輸入一次，下次掃描就能直接記錄。
+        </p>
+        <p className="mt-2 text-sm text-chalk-3">App 不會上網查條碼，也不會猜營養數字。</p>
+      </Sheet>
       {quick && <QuickAddSheet meal={meal} date={date} onClose={() => setQuick(false)} />}
     </div>
   );

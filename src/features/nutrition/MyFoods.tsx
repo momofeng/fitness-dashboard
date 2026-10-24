@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
+import { isValidGtin, normalizeBarcode } from '../../core/barcode';
 import { kcalFromMacros } from '../../core/nutrition';
 import { fmt } from '../../core/units';
 import { db } from '../../db/db';
@@ -10,6 +11,7 @@ import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
 import { EmptyState, PageHeader } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
 import { toastUndo } from '../../ui/toast';
+import { BarcodeScanner } from './BarcodeScanner';
 
 export default function MyFoods() {
   const [tab, setTab] = useState<'foods' | 'meals'>('foods');
@@ -94,8 +96,22 @@ export default function MyFoods() {
   );
 }
 
-export function CustomFoodForm({ initial, initialName, onClose, onSaved }: { initial?: CustomFood; initialName?: string; onClose: () => void; onSaved?: (f: CustomFood) => void }) {
+export function CustomFoodForm({
+  initial,
+  initialName,
+  initialBarcode,
+  onClose,
+  onSaved,
+}: {
+  initial?: CustomFood;
+  initialName?: string;
+  initialBarcode?: string;
+  onClose: () => void;
+  onSaved?: (f: CustomFood) => void;
+}) {
   const [name, setName] = useState(initial?.name ?? initialName ?? '');
+  const [barcode, setBarcode] = useState(initial?.barcode ?? initialBarcode ?? '');
+  const [scanning, setScanning] = useState(false);
   const [brand, setBrand] = useState(initial?.brand ?? '');
   const [basis, setBasis] = useState<'per100g' | 'perServing'>(initial?.per.basis ?? 'perServing');
   const [servingG, setServingG] = useState<number | null>(initial?.servingG ?? null);
@@ -107,7 +123,9 @@ export function CustomFoodForm({ initial, initialName, onClose, onSaved }: { ini
   const [fiber, setFiber] = useState<number | null>(initial?.per.fiber ?? null);
   const [sodium, setSodium] = useState<number | null>(initial?.per.sodium ?? null);
 
-  const valid = name.trim() && kcal != null && p != null && f != null && c != null;
+  const code = normalizeBarcode(barcode);
+  const barcodeBad = code !== '' && !/^\d{8,14}$/.test(code);
+  const valid = name.trim() && kcal != null && p != null && f != null && c != null && !barcodeBad;
   const est = kcalFromMacros(p ?? 0, c ?? 0, f ?? 0);
   const mismatch = valid && kcal! > 0 && Math.abs(est - kcal!) > Math.max(20, kcal! * 0.2);
 
@@ -117,7 +135,7 @@ export function CustomFoodForm({ initial, initialName, onClose, onSaved }: { ini
       id: initial?.id,
       name: name.trim(),
       brand: brand.trim(),
-      barcode: initial?.barcode ?? '',
+      barcode: code,
       servingG,
       servingLabel: servingLabel.trim(),
       per: { basis, kcal: kcal!, protein: p!, fat: f!, carbs: c!, fiber: fiber ?? undefined, sodium: sodium ?? undefined },
@@ -155,6 +173,22 @@ export function CustomFoodForm({ initial, initialName, onClose, onSaved }: { ini
       <div className="flex flex-col gap-4">
         <TextField label="名稱" value={name} maxLength={80} placeholder="例如：舒肥雞胸（原味）" onChange={(e) => setName(e.target.value)} />
         <TextField label="品牌／店家（選填）" value={brand} maxLength={60} onChange={(e) => setBrand(e.target.value)} />
+        <Field label="條碼（選填）" error={barcodeBad ? '條碼是 8–14 位數字' : null} hint={code && !barcodeBad && !isValidGtin(code) ? '檢查碼對不上，請再核對一次' : '有填的話，下次掃條碼就能直接找到'}>
+          <div className="flex gap-2">
+            <input className="field num flex-1" inputMode="numeric" maxLength={20} value={barcode} onChange={(e) => setBarcode(e.target.value)} aria-label="條碼" />
+            <Button icon="search" onClick={() => setScanning(true)}>
+              掃描
+            </Button>
+          </div>
+        </Field>
+        <BarcodeScanner
+          open={scanning}
+          onClose={() => setScanning(false)}
+          onResult={(c) => {
+            setBarcode(c);
+            setScanning(false);
+          }}
+        />
         <Field label="營養標示的基準" hint="台灣包裝的營養標示通常同時有「每一份量」與「每 100 公克」，擇一照抄即可">
           <Segmented
             ariaLabel="營養標示的基準"

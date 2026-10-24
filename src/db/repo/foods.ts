@@ -1,6 +1,7 @@
 // 飲食紀錄的讀寫。每筆紀錄存營養快照（per），之後改食物或資料庫改版都不影響歷史。
 
 import { useLiveQuery } from 'dexie-react-hooks';
+import { barcodeVariants, normalizeBarcode } from '../../core/barcode';
 import { portionFactor, scaleNutrients } from '../../core/nutrition';
 import { db, newId } from '../db';
 import { clampTo } from '../limits';
@@ -190,9 +191,18 @@ export async function logMealTemplate(t: MealTemplate, date: string, meal: Meal,
 }
 
 export async function saveCustomFood(f: Omit<CustomFood, 'id' | 'updatedAt'> & { id?: string }): Promise<CustomFood> {
-  const row: CustomFood = { ...f, id: f.id ?? newId(), updatedAt: Date.now() };
+  const barcode = normalizeBarcode(f.barcode);
+  if (barcode && !/^\d{8,14}$/.test(barcode)) throw new RangeError('條碼必須是 8–14 位數字');
+  const row: CustomFood = { ...f, barcode, id: f.id ?? newId(), updatedAt: Date.now() };
   await db.foodsCustom.put(row);
   return row;
+}
+
+/** 依條碼找自建食物（UPC-A 與補 0 的 EAN-13 視為同一個） */
+export async function findFoodByBarcode(code: string): Promise<CustomFood | undefined> {
+  const n = normalizeBarcode(code);
+  if (!n) return undefined;
+  return db.foodsCustom.where('barcode').anyOf(barcodeVariants(n)).first();
 }
 
 export async function addWater(date: string, ml: number) {
