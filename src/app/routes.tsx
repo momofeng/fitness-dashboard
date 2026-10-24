@@ -41,6 +41,7 @@ export const router = createHashRouter([
           { path: 'supplements', lazy: page(() => import('../features/shop/SupplementsPage')) },
           { path: 'supplements/:id', lazy: async () => ({ Component: (await import('../features/shop/SupplementsPage')).SupplementDetail }) },
           { path: 'products', lazy: page(() => import('../features/shop/ProductsPage')) },
+          { path: 'photos', lazy: page(() => import('../features/photos/PhotosPage')) },
           { path: '*', lazy: page(() => import('./NotFound')) },
         ],
       },

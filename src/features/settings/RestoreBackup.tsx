@@ -9,18 +9,35 @@ import { Segmented } from '../../ui/Fields';
 import { Sheet } from '../../ui/Sheet';
 import { toast } from '../../ui/toast';
 
-/** 從備份檔還原：選檔 → 驗證 → 預覽 → （有資料時先自動備份）→ 寫入 */
+/** 從備份檔還原：選檔（JSON 或 ZIP）→ 驗證 → 預覽 → （有資料時先自動備份）→ 寫入 */
 export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDone }: { label?: string; buttonProps?: ButtonProps; onDone?: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
+  const [blobs, setBlobs] = useState<Map<string, Blob>>(new Map());
   const [mode, setMode] = useState<ImportMode>('replace');
   const [busy, setBusy] = useState(false);
+  const [reading, setReading] = useState(false);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
-    // 驗證程式（Zod）只在真的要匯入時才載入
-    const { parseBackup } = await import('../../db/backup/import');
-    setParsed(parseBackup(await file.text(), file.size));
+    setReading(true);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      // ZIP 以檔頭判斷（PK\x03\x04），不看副檔名
+      if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
+        const { parseZip } = await import('../../db/backup/zip');
+        const r = parseZip(bytes);
+        setBlobs(r.ok ? r.blobs : new Map());
+        setParsed(r);
+        return;
+      }
+      // 驗證程式（Zod）只在真的要匯入時才載入
+      const { parseBackup } = await import('../../db/backup/import');
+      setBlobs(new Map());
+      setParsed(parseBackup(new TextDecoder().decode(bytes), file.size));
+    } finally {
+      setReading(false);
+    }
   }
 
   async function doImport() {
@@ -30,11 +47,17 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
       // 匯入前先自動匯出一份目前的資料，萬一選錯檔案還能救回
       const current = await exportBackup(db, __APP_VERSION__);
       const hasData = BACKUP_TABLES.some((t) => t !== 'settings' && current.tables[t].length > 0);
-      if (hasData) {
+      const photoCount = await db.photos.count();
+      if (parsed.data.includesPhotos && photoCount > 0) {
+        // ZIP 還原會動到照片：先存一份含照片的 ZIP
+        const { exportZip, zipFileName } = await import('../../db/backup/zip');
+        const { blob } = await exportZip(db, __APP_VERSION__);
+        download(blob, zipFileName().replace('fitness-full', 'fitness-before-import'));
+      } else if (hasData) {
         // 直接下載到「下載」資料夾，不走分享面板，避免使用者關掉面板後仍執行取代
         download(new Blob([JSON.stringify(current)], { type: 'application/json' }), backupFileName().replace('fitness-backup', 'fitness-before-import'));
       }
-      await applyBackup(db, parsed.data, mode);
+      await applyBackup(db, parsed.data, mode, blobs);
       setParsed(null);
       toast(mode === 'replace' ? '已用備份取代目前資料' : '已合併備份資料');
       onDone?.();
@@ -47,13 +70,13 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
 
   return (
     <>
-      <Button icon="upload" block {...buttonProps} onClick={() => fileRef.current?.click()}>
-        {label}
+      <Button icon="upload" block disabled={reading} {...buttonProps} onClick={() => fileRef.current?.click()}>
+        {reading ? '讀取中…' : label}
       </Button>
       <input
         ref={fileRef}
         type="file"
-        accept="application/json,.json"
+        accept="application/json,.json,application/zip,.zip"
         className="hidden"
         aria-label="選擇備份檔"
         onChange={(e) => {
@@ -101,6 +124,11 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
               ]}
               onChange={setMode}
             />
+            <p className="text-sm text-chalk-3">
+              {parsed.data.includesPhotos
+                ? `完整備份（含 ${parsed.counts.photos} 張進度照）。${mode === 'replace' ? '手機上現有的照片會被換成備份裡的。' : ''}`
+                : '這份備份不含進度照，手機上現有的照片會保留。'}
+            </p>
             <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">
               {mode === 'replace' ? '目前的資料會被完全取代。' : '同一筆資料以較新的版本為準。'}執行前會先把目前資料下載一份到「下載」資料夾（沒有資料時略過）。
             </p>

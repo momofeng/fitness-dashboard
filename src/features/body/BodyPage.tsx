@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { lazy, Suspense, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { dailyAverages, ffmi, movingAverage, rateVerdict, trendSeries, weeklyRatePct } from '../../core/body';
 import { addDays, relativeDayLabel, shortDateLabel } from '../../core/dates';
 import { fmt, fromDisplayWeight, toDisplayWeight } from '../../core/units';
@@ -8,6 +9,7 @@ import { LIMITS } from '../../db/limits';
 import { moveBodyMetric, upsertBodyMetric, useBodyMetrics, validateBodyPatch } from '../../db/repo/body';
 import { CIRC_LABEL, CIRCUMFERENCES, type BodyMetric, type Circumference } from '../../db/schemas';
 import { Button, IconButton } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
 import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
 import { EmptyState, PageHeader, Section } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
@@ -54,7 +56,15 @@ export default function BodyPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <PageHeader title="身體" />
+      <PageHeader
+        title="身體"
+        actions={
+          <Link to="/photos" className="press flex h-10 items-center gap-1 rounded-md px-2 text-sm text-chalk-3 hover:bg-iron-2">
+            進度照
+            <Icon name="chevronRight" size={16} />
+          </Link>
+        }
+      />
 
       <QuickWeight today={today} row={todayRow} unit={unit} />
 

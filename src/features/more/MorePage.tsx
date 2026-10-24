@@ -32,6 +32,7 @@ const GROUPS: Array<{ title: string; items: Array<{ to: string; icon: IconName; 
       { to: '/recovery', icon: 'timer', label: '恢復紀錄', sub: '睡眠、精力、痠痛與減量建議' },
       { to: '/goals', icon: 'star', label: '目標與習慣', sub: '體重、動作目標，每日習慣打卡' },
       { to: '/calendar', icon: 'chart', label: '月曆', sub: '每天的訓練、蛋白質、睡眠與習慣' },
+      { to: '/photos', icon: 'body', label: '進度照', sub: '正面、側面、背面，並排比較' },
     ],
   },
   {
@@ -69,7 +70,7 @@ export default function MorePage() {
           </div>
         </Section>
       ))}
-      <p className="text-center text-cap text-chalk-4">版本 {__APP_VERSION__} · Round 2 將加入補給品選品、恢復、進度照</p>
+      <p className="text-center text-cap text-chalk-4">版本 {__APP_VERSION__}</p>
     </div>
   );
 }

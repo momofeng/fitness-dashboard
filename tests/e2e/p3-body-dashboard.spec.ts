@@ -51,7 +51,7 @@ test('匯出 → 清除 → 還原 → 再匯出，兩份一致；壞檔不改�
 
   await page.goto('./#/settings/data');
   const d1 = page.waitForEvent('download');
-  await page.getByRole('button', { name: '匯出備份（JSON）' }).click();
+  await page.getByRole('button', { name: '匯出備份（JSON，不含照片）' }).click();
   const first = JSON.parse(readFileSync((await (await d1).path())!, 'utf8'));
   expect(first.tables.foodLogs).toHaveLength(1);
 
@@ -80,7 +80,7 @@ test('匯出 → 清除 → 還原 → 再匯出，兩份一致；壞檔不改�
 
   await page.goto('./#/settings/data');
   const d2 = page.waitForEvent('download');
-  await page.getByRole('button', { name: '匯出備份（JSON）' }).click();
+  await page.getByRole('button', { name: '匯出備份（JSON，不含照片）' }).click();
   const second = JSON.parse(readFileSync((await (await d2).path())!, 'utf8'));
   // 去掉會變的欄位：匯出時間、上次備份時間、設定的 updatedAt
   const strip = (b: { exportedAt?: number; tables: { settings: Array<{ backup: { lastExportAt: unknown }; updatedAt: unknown }> } }) => {

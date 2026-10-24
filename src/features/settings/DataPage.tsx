@@ -11,7 +11,7 @@ import { Icon } from '../../ui/Icon';
 import { PageHeader, Section } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
 import { toast } from '../../ui/toast';
-import { exportAndShare } from './backupActions';
+import { exportAndShare, exportZipAndShare } from './backupActions';
 import { RestoreBackup } from './RestoreBackup';
 
 const fmtBytes = (n: number) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -22,6 +22,7 @@ export default function DataPage() {
   const [usage, setUsage] = useState<{ usage: number; quota: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [zipping, setZipping] = useState(false);
 
   useEffect(() => {
     void persistStatus().then(setPersist);
@@ -110,8 +111,30 @@ export default function DataPage() {
             if (await exportAndShare()) toast('備份完成');
           }}
         >
-          匯出備份（JSON）
+          匯出備份（JSON，不含照片）
         </Button>
+        <Button
+          icon="download"
+          block
+          disabled={zipping}
+          onClick={async () => {
+            setZipping(true);
+            try {
+              const n = await exportZipAndShare();
+              if (n != null) toast(`完整備份完成（含 ${n} 張進度照）`);
+            } catch (e) {
+              toast(`完整備份失敗：${e instanceof Error ? e.message : e}`, { tone: 'error', ms: 8000 });
+            } finally {
+              setZipping(false);
+            }
+          }}
+        >
+          {zipping ? '打包中…' : '完整備份（ZIP，含進度照）'}
+        </Button>
+        <p className="text-cap text-chalk-4">
+          JSON 檔小、適合每週備份；有拍進度照的話，換手機前請用 ZIP 完整備份。
+          {s.backup.lastFullExportAt ? `上次完整備份：${new Date(s.backup.lastFullExportAt).toLocaleDateString('zh-TW')}。` : ''}
+        </p>
         <RestoreBackup />
       </div>
 
@@ -187,7 +210,7 @@ export default function DataPage() {
           </div>
         }
       >
-        <p className="text-base text-chalk-2">訓練、飲食、身體數據與設定都會刪除，無法復原。建議先匯出備份。</p>
+        <p className="text-base text-chalk-2">訓練、飲食、身體數據、進度照與設定都會刪除，無法復原。建議先做 ZIP 完整備份。</p>
       </Sheet>
     </div>
   );
