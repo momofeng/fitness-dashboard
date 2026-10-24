@@ -20,6 +20,13 @@ const GROUPS: Array<{ title: string; items: Array<{ to: string; icon: IconName; 
     ],
   },
   {
+    title: '選品',
+    items: [
+      { to: '/supplements', icon: 'note', label: '補給品知識卡', sub: '證據等級、劑量與來源' },
+      { to: '/products', icon: 'drop', label: '我的補給品與裝備', sub: '比價、庫存、補貨提醒、每日打卡' },
+    ],
+  },
+  {
     title: '恢復與目標',
     items: [
       { to: '/recovery', icon: 'timer', label: '恢復紀錄', sub: '睡眠、精力、痠痛與減量建議' },
