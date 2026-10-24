@@ -42,7 +42,7 @@ describe('補給品知識卡', () => {
   });
 
   it('每個來源都有 PMID／DOI 或是政府官方網址，且都有被引用', () => {
-    const used = new Set(SUPPLEMENT_CARDS.flatMap((c) => [...c.claims, ...c.dose, ...c.safety].flatMap((x) => x.sources)));
+    const used = new Set<string>(SUPPLEMENT_CARDS.flatMap((c) => [...c.claims, ...c.dose, ...c.safety].flatMap((x) => x.sources)));
     for (const [id, s] of Object.entries(SOURCES) as Array<[string, (typeof SOURCES)[keyof typeof SOURCES]]>) {
       expect(s.url, id).toMatch(/^https:\/\//);
       const pmid = 'pmid' in s ? s.pmid : undefined;
