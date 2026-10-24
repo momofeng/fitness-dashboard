@@ -5,6 +5,7 @@ import { fmt } from '../../core/units';
 import { db } from '../../db/db';
 import { Meter, PageHeader, Section } from '../../ui/Layout';
 import { useTargets } from '../shared/useToday';
+import { AdaptiveTdeeCard } from './AdaptiveTdee';
 
 export default function NutritionWeek() {
   const { targets, settings, today } = useTargets();
@@ -44,6 +45,8 @@ export default function NutritionWeek() {
           {avg.protein / div < targets.protein * 0.9 && ' 蛋白質偏少，每餐加一份手掌大小的肉、魚、蛋或豆製品。'}
         </p>
       )}
+
+      {targets && <AdaptiveTdeeCard settings={settings} targets={targets} today={today} />}
 
       <Section title="每日">
         <div className="card divide-y divide-seam overflow-hidden">

@@ -38,10 +38,15 @@ export interface NutritionPrefs {
   proteinPerKg: number;
   fatPct: number;
   fatMinPerKg: number;
+  /** 套用自適應 TDEE 後的值；null／undefined = 用公式 */
+  tdeeOverride?: number | null;
 }
 
 export interface MacroTargets {
   tdee: number;
+  /** 公式估算（BMR × 活動係數），套用自適應值時仍可對照 */
+  formulaTdee: number;
+  tdeeSource: 'formula' | 'adaptive';
   surplus: number;
   kcal: number;
   protein: number;
@@ -56,7 +61,9 @@ export function macroTargets(
   input: { sex: Sex; weightKg: number; heightCm: number; age: number; activity: number },
   prefs: NutritionPrefs,
 ): MacroTargets {
-  const t = tdee(bmr(input.sex, input.weightKg, input.heightCm, input.age), input.activity);
+  const formula = tdee(bmr(input.sex, input.weightKg, input.heightCm, input.age), input.activity);
+  const adaptive = prefs.tdeeOverride != null && prefs.tdeeOverride > 0;
+  const t = adaptive ? prefs.tdeeOverride! : formula;
   const surplus =
     prefs.mode === 'rate' ? surplusFromRate(input.weightKg, prefs.weeklyGainPct) : prefs.surplusKcal;
   const kcal = Math.round(t + surplus);
@@ -67,7 +74,7 @@ export function macroTargets(
   const warnings: string[] = [];
   if (carbsRaw < 0) warnings.push('蛋白質與脂肪已超過目標熱量，請調低比例或提高熱量。');
   else if (carbs < 3 * input.weightKg) warnings.push('碳水低於每公斤 3 g，訓練表現可能受影響。');
-  return { tdee: Math.round(t), surplus: Math.round(surplus), kcal, protein, fat, carbs, warnings };
+  return { tdee: Math.round(t), formulaTdee: Math.round(formula), tdeeSource: adaptive ? 'adaptive' : 'formula', surplus: Math.round(surplus), kcal, protein, fat, carbs, warnings };
 }
 
 export interface Nutrients {

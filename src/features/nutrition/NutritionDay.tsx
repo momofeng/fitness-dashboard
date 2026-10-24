@@ -4,10 +4,11 @@ import { addDays, relativeDayLabel, shortDateLabel } from '../../core/dates';
 import { sumNutrients } from '../../core/nutrition';
 import { fmt } from '../../core/units';
 import { db } from '../../db/db';
+import { setIntakeComplete } from '../../db/repo/recovery';
 import { addWater, copyLogs, deleteFoodLog, moveFoodLog, quickAdd, restoreFoodLogs, saveMealAsTemplate, updateFoodLogQty, useDailyLog, useFoodLogs } from '../../db/repo/foods';
 import { MEAL_LABEL, MEALS, type FoodLog, type Meal } from '../../db/schemas';
 import { Button, IconButton } from '../../ui/Button';
-import { Field, NumberInput, TextField } from '../../ui/Fields';
+import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
 import { Icon } from '../../ui/Icon';
 import { EmptyState, Meter, PageHeader } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
@@ -152,6 +153,23 @@ export default function NutritionDay() {
         </Button>
       </div>
       {logs.length === 0 && <EmptyState icon="bowl" title="這天還沒有紀錄" body="點各餐右邊的 ＋ 搜尋食物，或用快速加入記下外食的熱量。" />}
+
+      {logs.length > 0 && (
+        <div className="flex flex-col gap-2 px-1">
+          <p className="text-sm text-chalk-3">這天的飲食都記了嗎？（自適應 TDEE 只用記錄完整的日子）</p>
+          <Segmented
+            size="sm"
+            ariaLabel="這天的飲食記錄"
+            value={daily?.intakeComplete === true ? 'yes' : daily?.intakeComplete === false ? 'no' : 'auto'}
+            options={[
+              { value: 'auto', label: '自動判斷' },
+              { value: 'yes', label: '完整' },
+              { value: 'no', label: '不完整' },
+            ]}
+            onChange={(v) => void setIntakeComplete(date, v === 'auto' ? undefined : v === 'yes')}
+          />
+        </div>
+      )}
 
       <EntrySheet entry={entry} onClose={() => setEntry(null)} />
       {quick && <QuickAddSheet meal={quick} date={date} onClose={() => setQuick(null)} />}
