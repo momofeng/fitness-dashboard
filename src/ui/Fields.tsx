@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Icon } from './Icon';
 
 export function Field({ label, hint, error, children, htmlFor }: { label: string; hint?: ReactNode; error?: string | null; children: ReactNode; htmlFor?: string }) {
@@ -20,6 +20,14 @@ export function TextField({ label, hint, error, ...rest }: InputHTMLAttributes<H
       <input id={id} className="field" {...rest} />
     </Field>
   );
+}
+
+/** 接受全形數字與逗號小數點；空白回傳 null */
+function parseNumber(s: string): number | null {
+  const t = s.normalize('NFKC').replace(',', '.').trim();
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
 }
 
 function fmtInput(v: number | null, decimals: number): string {
@@ -77,16 +85,23 @@ export function NumberInput({
 }: NumberInputProps) {
   const [text, setText] = useState(fmtInput(value, decimals));
   const [focused, setFocused] = useState(false);
+  // 輸入中直接離開（Android 返回鍵關掉抽屜、點分頁換頁）時不會有 blur：卸載時把還沒確定的值確定掉
+  const pending = useRef({ text, focused, onCommit, clamp, min, max });
+  pending.current = { text, focused, onCommit, clamp, min, max };
+  useEffect(
+    () => () => {
+      const p = pending.current;
+      if (!p.focused || !p.onCommit) return;
+      const n = parseNumber(p.text);
+      p.onCommit(n == null ? null : p.clamp ? Math.min(p.max, Math.max(p.min, n)) : n);
+    },
+    [],
+  );
   useEffect(() => {
     if (!focused) setText(fmtInput(value, decimals));
   }, [value, decimals, focused]);
 
-  const parse = (s: string): number | null => {
-    const t = s.normalize('NFKC').replace(',', '.').trim();
-    if (t === '') return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  };
+  const parse = parseNumber;
   const clampV = (n: number) => Math.min(max, Math.max(min, n));
   const bump = (dir: 1 | -1) => {
     const base = value ?? 0;
@@ -122,6 +137,10 @@ export function NumberInput({
           onFocus={(e) => {
             setFocused(true);
             e.currentTarget.select();
+          }}
+          onKeyDown={(e) => {
+            // 鍵盤的「完成」／Enter：收起鍵盤並確定數值
+            if (e.key === 'Enter') e.currentTarget.blur();
           }}
           aria-invalid={outOfRange || undefined}
           onBlur={() => {

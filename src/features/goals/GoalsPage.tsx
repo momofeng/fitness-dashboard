@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { GOAL_TYPE_LABEL, GOAL_TYPES, HABIT_RULE_LABEL, HABIT_RULES, type GoalKind, type HabitRule } from '../../content/types';
-import { addDays, rangeKeys, shortDateLabel } from '../../core/dates';
+import { addDays, rangeKeys, shortDateLabel, startOfWeek } from '../../core/dates';
 import { daysLeft, defaultGoalDirection, goalProgress, weekCount } from '../../core/goals';
 import { fmt, fromDisplayWeight, toDisplayWeight, type WeightUnit } from '../../core/units';
 import { goalValueRange, isValidDay, LIMITS } from '../../db/limits';
@@ -245,7 +245,7 @@ function HabitList({
   if (active.length === 0) return <EmptyState icon="check" title="還沒有習慣" body="例如：每天量體重、蛋白質達標、睡滿 7 小時。自動判定的習慣不用手動打卡。" />;
   if (!logs || !facts) return <div aria-busy="true" className="h-20" />;
   const manual = new Set(logs.map((l) => l.id));
-  const last7 = rangeKeys(addDays(today, -6), today);
+  const weekDays = rangeKeys(startOfWeek(today, weekStart), addDays(startOfWeek(today, weekStart), 6));
   return (
     <div className="card divide-y divide-seam overflow-hidden">
       {active.map((h) => {
@@ -260,10 +260,13 @@ function HabitList({
                 {HABIT_RULE_LABEL[h.rule]} · 本週 {week}/{h.perWeek}
                 {week >= h.perWeek && ' ✓'}
               </p>
-              <div className="mt-1.5 flex items-center gap-1" aria-label={`近 7 天：${last7.map((d) => (done.has(d) ? '完成' : '未完成')).join('、')}`}>
-                <span className="mr-1 text-cap text-chalk-3">近 7 天</span>
-                {last7.map((d) => (
-                  <span key={d} title={`${shortDateLabel(d)}：${done.has(d) ? '完成' : '未完成'}`} className={`h-2 w-5 rounded-full ${done.has(d) ? 'bg-go' : 'bg-iron-3'}`} />
+              <div className="mt-1.5 flex items-center gap-1" aria-label={`本週：${weekDays.map((d) => (d > today ? '還沒到' : done.has(d) ? '完成' : '未完成')).join('、')}`}>
+                {weekDays.map((d) => (
+                  <span
+                    key={d}
+                    title={`${shortDateLabel(d)}：${d > today ? '還沒到' : done.has(d) ? '完成' : '未完成'}`}
+                    className={`h-2 w-5 rounded-full ${d > today ? 'border border-seam-strong' : done.has(d) ? 'bg-go' : 'bg-iron-3'}`}
+                  />
                 ))}
               </div>
             </div>
@@ -305,16 +308,29 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
   const [target, setTarget] = useState<number | null>(toShow(initial?.targetValue, initial?.type ?? 'bodyweight'));
   const [start, setStart] = useState<number | null>(initial?.type === 'custom' ? (initial.startValue ?? null) : null);
   const [due, setDue] = useState(initial?.dueDate ?? '');
-  const [direction, setDirection] = useState<'up' | 'down'>(initial?.direction ?? defaultGoalDirection(initial?.type ?? 'bodyweight', initial?.circ ?? null));
-  const [dirTouched, setDirTouched] = useState(initial?.direction != null);
-  useEffect(() => {
-    if (!dirTouched) setDirection(defaultGoalDirection(type, circ));
-  }, [type, circ, dirTouched]);
+  // 舊目標沒有存方向：依起點與目標推算（不要用類型預設，否則「減到 65 kg」會被當成增加而直接達成）
+  const [direction, setDirection] = useState<'up' | 'down'>(() => {
+    if (initial?.direction) return initial.direction;
+    if (initial && initial.startValue != null) return initial.targetValue >= initial.startValue ? 'up' : 'down';
+    return defaultGoalDirection(initial?.type ?? 'bodyweight', initial?.circ ?? null);
+  });
+  // 編輯既有目標時不自動改方向；新目標在使用者自己選之前，依「目前紀錄 vs 目標值」自動判斷
+  const [dirTouched, setDirTouched] = useState(initial != null);
+  const currentNow = useLiveQuery(
+    () => goalCurrent({ type, exerciseId, targetReps: reps, circ, current: start }, today),
+    [type, exerciseId, reps, circ, start, today],
+  );
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const toKg = (v: number | null) => (v == null ? null : isWeight(type) ? fromDisplayWeight(v, wu) : v);
+  const targetKg = toKg(target);
+  useEffect(() => {
+    if (dirTouched || type === 'lift') return;
+    if (currentNow != null && targetKg != null && targetKg !== currentNow) setDirection(targetKg > currentNow ? 'up' : 'down');
+    else setDirection(defaultGoalDirection(type, circ));
+  }, [type, circ, dirTouched, currentNow, targetKg]);
   const [lo, hi] = goalValueRange(type);
   const shownRange = isWeight(type) ? [toDisplayWeight(lo, wu), toDisplayWeight(hi, wu)] : [lo, hi];
   const u = unitOf({ type, unit }, wu);
@@ -417,7 +433,7 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
           </Field>
         )}
         {type !== 'lift' && (
-          <Field label="目標是">
+          <Field label="目標是" hint={currentNow != null ? `目前 ${fmt(show({ type }, currentNow, wu), 1)} ${u}` : undefined}>
             <Segmented
               ariaLabel="目標方向"
               value={direction}

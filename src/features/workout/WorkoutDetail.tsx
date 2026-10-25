@@ -7,7 +7,7 @@ import { useSettings } from '../../db/repo/settings';
 import { deleteWorkout, restoreWorkout, useWorkout, useWorkoutSets } from '../../db/repo/workouts';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { EmptyState, PageHeader, Section } from '../../ui/Layout';
+import { EmptyState, goBackOr, PageHeader, Section } from '../../ui/Layout';
 import { toastUndo } from '../../ui/toast';
 
 export default function WorkoutDetail() {
@@ -73,7 +73,7 @@ export default function WorkoutDetail() {
                 <ol className="mt-2 flex flex-col gap-1">
                   {list.map((s, i) => (
                     <li key={s.id} className="num flex items-center gap-3 text-base">
-                      <span className={`w-8 text-sm ${s.kind === 'working' ? 'text-chalk-3' : 'text-chalk-3'}`}>
+                      <span className={`w-8 text-sm ${s.kind === 'working' ? 'text-chalk-2' : 'text-chalk-3'}`}>
                         {s.kind === 'warmup' ? '暖' : s.kind === 'drop' ? '遞減' : list.filter((x, j) => x.kind === 'working' && j <= i).length}
                       </span>
                       <span className={s.kind === 'working' ? '' : 'text-chalk-3'}>
@@ -97,7 +97,7 @@ export default function WorkoutDetail() {
         block
         onClick={async () => {
           const backup = await deleteWorkout(workout.id);
-          navigate('/train/history', { replace: true });
+          goBackOr(navigate, '/train/history');
           if (backup) toastUndo('已刪除這場訓練', () => restoreWorkout(backup));
         }}
       >

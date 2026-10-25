@@ -12,7 +12,7 @@ import { useSettings } from '../../db/repo/settings';
 import { exerciseHistory } from '../../db/repo/workouts';
 import { Button } from '../../ui/Button';
 import { Field, NumberInput } from '../../ui/Fields';
-import { EmptyState, PageHeader, Section } from '../../ui/Layout';
+import { EmptyState, goBackOr, PageHeader, Section } from '../../ui/Layout';
 import { toast, toastUndo } from '../../ui/toast';
 import { ExerciseForm } from './ExerciseLibrary';
 import { exerciseSeries } from './trainingStats';
@@ -174,7 +174,7 @@ export default function ExerciseDetail() {
           block
           onClick={async () => {
             await db.exercisesCustom.delete(id);
-            navigate('/train/exercises', { replace: true });
+            goBackOr(navigate, '/train/exercises');
             toastUndo(`已刪除「${custom.nameZh}」`, () => db.exercisesCustom.put(custom));
           }}
         >

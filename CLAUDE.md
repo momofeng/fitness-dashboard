@@ -13,6 +13,8 @@
   - 新 spec 要用 `--repeat-each 4` 跑過才算穩定
   - e2e 用 `putRows` 直接寫 IndexedDB 後要 `page.reload()`：Dexie 的查詢快取不知道外部寫入，同一個查詢會拿到舊結果
   - 條碼：用 init script 模擬 `BarcodeDetector` 與 `getUserMedia`（canvas stream），見 `tests/e2e/r2-barcode.spec.ts`
+  - 對話框：用 `expectDialogButtonsInView` 檢查按鈕都在畫面內（Playwright 點擊會自動捲動，人卻按不到）；修改既有數值用 `pressSequentially` 模擬手機逐字輸入
+  - 會存檔的數字欄位用 `NumberInput` 的 `onCommit`（離開欄位或按 −／＋ 才存），不要在 `onChange` 每打一字就存
 
 ## 架構規則
 - `src/core/`：純函式（計算、日期、單位、搜尋），不得 import React／Dexie／DOM；`tests/unit/architecture.test.ts` 會檢查

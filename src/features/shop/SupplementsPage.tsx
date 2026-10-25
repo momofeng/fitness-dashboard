@@ -95,7 +95,7 @@ function SourceList({ ids }: { ids: SourceId[] }) {
         const s = SOURCES[id];
         return (
           <li key={id} className="text-sm text-chalk-3">
-            <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center text-sm underline decoration-chalk-4 underline-offset-2 hover:text-chalk-2">
+            <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm underline decoration-chalk-4 underline-offset-2 hover:text-chalk-2">
               {s.label}
             </a>
             {'pmid' in s && s.pmid ? ` · PMID ${s.pmid}` : ''}
@@ -118,7 +118,7 @@ function ClaimList({ claims }: { claims: readonly Claim[] }) {
             type="button"
             onClick={() => setOpen(open === i ? null : i)}
             aria-expanded={open === i}
-            className="press mt-0.5 flex h-8 items-center gap-1 self-start text-sm text-chalk-3 hover:text-chalk-2"
+            className="press mt-0.5 flex h-11 items-center gap-1 self-start pr-2 text-sm text-chalk-3 hover:text-chalk-2"
           >
             <Icon name="note" size={14} />
             來源（{c.sources.length}）

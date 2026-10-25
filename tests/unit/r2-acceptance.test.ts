@@ -81,3 +81,24 @@ describe('還原錯誤訊息改成中文', () => {
     expect(fieldLabel('items.0.qty')).toBe('items › 第 1 項 › qty');
   });
 });
+
+describe('減量週：只在減量週做過的動作', () => {
+  it('減量週內不再打折；減量結束後有目標重量可用', async () => {
+    const { startDeloadWeek, endDeloadWeek } = await import('../../src/db/repo/recovery');
+    const { addExerciseToWorkout, finishWorkout, logSet, startWorkout } = await import('../../src/db/repo/workouts');
+    const { todayKey } = await import('../../src/core/dates');
+    await startDeloadWeek(todayKey(4));
+    const w1 = await startWorkout({});
+    await addExerciseToWorkout(w1, 'leg-press', 90);
+    for (let i = 0; i < 2; i++) await logSet(w1, { exerciseId: 'leg-press', kind: 'working', weightKg: 80, reps: 10, rir: null }, 0);
+    await finishWorkout(w1);
+    const w2 = await startWorkout({});
+    await addExerciseToWorkout(w2, 'leg-press', 90);
+    expect((await db.workouts.get(w2))!.plan[0]!.targetWeightKg).toBe(80);
+    await finishWorkout(w2);
+    await endDeloadWeek(todayKey(4));
+    const w3 = await startWorkout({});
+    await addExerciseToWorkout(w3, 'leg-press', 90);
+    expect((await db.workouts.get(w3))!.plan[0]!.targetWeightKg).toBe(80);
+  });
+});

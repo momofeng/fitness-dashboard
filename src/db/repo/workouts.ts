@@ -24,7 +24,7 @@ type Lookup = (id: string) => AnyExercise | undefined;
  * 某動作最近一場（不含 excludeWorkoutId）的組數。
  * skipDeload：略過減量週的場次——拿來當下次目標時要用，否則每場減量都會再打一次折。
  */
-export async function lastSessionSets(exerciseId: string, excludeWorkoutId?: string, opts: { skipDeload?: boolean } = {}): Promise<WorkoutSet[]> {
+export async function lastSessionSets(exerciseId: string, excludeWorkoutId?: string, opts: { skipDeload?: boolean; strict?: boolean } = {}): Promise<WorkoutSet[]> {
   const rows = await db.sets
     .where('[exerciseId+date]')
     .between([exerciseId, Dexie.minKey], [exerciseId, Dexie.maxKey])
@@ -34,7 +34,8 @@ export async function lastSessionSets(exerciseId: string, excludeWorkoutId?: str
   let pick = ids[0];
   if (opts.skipDeload && ids.length) {
     const ws = await db.workouts.bulkGet(ids);
-    pick = ids.find((_, i) => !ws[i]?.deload);
+    // 只在減量週做過的動作：預設仍拿減量場次當基準；strict 時回傳空的
+    pick = ids.find((_, i) => !ws[i]?.deload) ?? (opts.strict ? undefined : ids[0]);
   }
   if (!pick) return [];
   return rows.filter((r) => r.workoutId === pick).sort((a, b) => a.order - b.order);
@@ -76,6 +77,13 @@ export async function planItemFor(
   };
 }
 
+/** 目標重量是不是來自正常（非減量）的紀錄；只在減量週做過的動作再打折會一路往下掉 */
+async function hasNormalBase(exerciseId: string): Promise<boolean> {
+  const st = await db.progressionState.get(exerciseId);
+  if (st?.workingWeightKg != null) return true;
+  return (await lastSessionSets(exerciseId, undefined, { skipDeload: true, strict: true })).length > 0;
+}
+
 /** 重量級距：磅制用 lb 級距（數值是 lb），公斤用器材級距 */
 function unitStep(ex: AnyExercise | undefined, settings: Settings): number {
   const lb = settings.units.weight === 'lb';
@@ -93,11 +101,11 @@ function unitStep(ex: AnyExercise | undefined, settings: Settings): number {
  * 減量週的計畫：組數 × deloadSetsPct%、重量 × deloadWeightPct%（往下對齊級距，不低於空槓）。
  * 輔助型動作（數字越小越難）與徒手動作只減組數。
  */
-export function deloadPlanItem(item: PlanItem, ex: AnyExercise | undefined, settings: Settings): PlanItem {
+export function deloadPlanItem(item: PlanItem, ex: AnyExercise | undefined, settings: Settings, opts: { reduceWeight?: boolean } = {}): PlanItem {
   const lb = settings.units.weight === 'lb';
   const toU = (kg: number) => (lb ? kgToLb(kg) : kg);
   const fromU = (v: number) => (lb ? lbToKg(v) : v);
-  const keepWeight = !ex || ex.loadType === 'assisted' || ex.loadType === 'bodyweight';
+  const keepWeight = !ex || ex.loadType === 'assisted' || ex.loadType === 'bodyweight' || opts.reduceWeight === false;
   const r = deloadTarget(
     item.sets,
     item.targetWeightKg == null || keepWeight ? null : toU(item.targetWeightKg),
@@ -124,7 +132,7 @@ export async function startWorkout(opts: { program?: Program; dayIndex?: number;
   const date = opts.date ?? todayKey(settings.dayCutoffHour);
   const deload = isDeloadActive(settings.recovery.deloadUntil, date);
   const base = day ? await Promise.all(day.slots.map((s) => planItemFor(s, get))) : [];
-  const plan = deload ? base.map((p) => deloadPlanItem(p, get(p.exerciseId), settings)) : base;
+  const plan = deload ? await Promise.all(base.map(async (p) => deloadPlanItem(p, get(p.exerciseId), settings, { reduceWeight: await hasNormalBase(p.exerciseId) }))) : base;
   const now = Date.now();
   const w: Workout = {
     id: newId(),
@@ -152,10 +160,11 @@ export async function addExerciseToWorkout(workoutId: string, exerciseId: string
   const [lo, hi] = ex?.defaultRepRange ?? [8, 12];
   const item = await planItemFor({ exerciseId, sets: 3, repMin: lo, repMax: hi, restSec: defaultRestSec, progression: 'double' }, get);
   const settings = await getSettings();
+  const normalBase = await hasNormalBase(exerciseId);
   await db.transaction('rw', db.workouts, async () => {
     const w = await db.workouts.get(workoutId);
     if (!w) return;
-    const next = w.deload ? deloadPlanItem(item, ex, settings) : item;
+    const next = w.deload ? deloadPlanItem(item, ex, settings, { reduceWeight: normalBase }) : item;
     await db.workouts.update(workoutId, { plan: [...w.plan, next], updatedAt: Date.now() });
   });
 }

@@ -93,7 +93,7 @@ export function isValidDay(key: string | null | undefined): key is string {
 }
 
 export function assertDay(key: string | null | undefined, label = '日期'): void {
-  if (!isValidDay(key)) throw new RangeError(`${label}格式不正確：${key ?? '（空白）'}`);
+  if (!isValidDay(key)) throw new RangeError(`${label}格式不正確：${key || '（空白）'}`);
 }
 
 // ---------- 進度照 ----------

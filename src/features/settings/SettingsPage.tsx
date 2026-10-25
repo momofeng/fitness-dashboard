@@ -271,12 +271,13 @@ function WarmupEditor({ s }: { s: Settings }) {
           恢復預設
         </Button>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
+      <div className="grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
         <span className="text-sm text-chalk-3">空槓</span>
-        <NumberInput ariaLabel="空槓組次數" value={w.barReps} decimals={0} min={LIMITS.warmupBarReps[0]} max={LIMITS.warmupBarReps[1]} suffix="下" onChange={(v) => v != null && void save({ ...w, barReps: Math.round(v) })} />
+        <NumberInput ariaLabel="空槓組次數" className="col-span-2" value={w.barReps} decimals={0} min={LIMITS.warmupBarReps[0]} max={LIMITS.warmupBarReps[1]} suffix="下" onChange={(v) => v != null && void save({ ...w, barReps: Math.round(v) })} />
         <span />
         {w.steps.map((st, i) => (
           <div key={i} className="contents">
+            <span className="text-sm text-chalk-3">第 {i + 1} 步</span>
             <NumberInput ariaLabel={`暖身第 ${i + 1} 步百分比`} value={st.pct} step={5} decimals={0} min={LIMITS.warmupPct[0]} max={LIMITS.warmupPct[1]} suffix="%" onChange={(v) => v != null && void setStep(i, { pct: Math.round(v) })} />
             <NumberInput ariaLabel={`暖身第 ${i + 1} 步次數`} value={st.reps} decimals={0} min={LIMITS.warmupReps[0]} max={LIMITS.warmupReps[1]} suffix="下" onChange={(v) => v != null && void setStep(i, { reps: Math.round(v) })} />
             <IconButton icon="x" label={`移除暖身第 ${i + 1} 步`} onClick={() => void save({ ...w, steps: w.steps.filter((_, j) => j !== i) })} />

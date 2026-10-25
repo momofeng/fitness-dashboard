@@ -1,6 +1,16 @@
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, type NavigateFunction } from 'react-router';
 import { Icon } from './Icon';
+
+/**
+ * 回上一頁；App 內沒有上一頁（直接開網址、重新整理）時，以 fallback 取代目前這頁，
+ * 不疊新的紀錄，避免兩頁之間互相「返回」打轉。
+ */
+export function goBackOr(navigate: NavigateFunction, fallback: string) {
+  const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+  if (idx > 0) void navigate(-1);
+  else void navigate(fallback, { replace: true });
+}
 
 /**
  * 頁面標題列：手機上是頁首，桌面上與內容同寬。
@@ -15,11 +25,8 @@ export function PageHeader({ title, back, actions, sub }: { title: ReactNode; ba
           to={back}
           aria-label="返回"
           onClick={(e) => {
-            const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-            if (idx > 0) {
-              e.preventDefault();
-              navigate(-1);
-            }
+            e.preventDefault();
+            goBackOr(navigate, back);
           }}
           className="press -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-chalk-2 hover:bg-iron-2"
         >

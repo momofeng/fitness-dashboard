@@ -52,6 +52,7 @@ export async function addFoodLog(input: {
   unit: 'g' | 'serving';
   source?: FoodLog['source'];
 }): Promise<FoodLog> {
+  assertDay(input.date);
   const n = computeEntry(input.item.per, input.qty, input.unit, input.item.servingG);
   if (!n) throw new Error('這個份量無法換算，請改用克數或份數');
   const now = Date.now();

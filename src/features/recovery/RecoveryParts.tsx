@@ -135,7 +135,11 @@ export function AdviceCard({ advice, today, showOk = false }: { advice: DeloadAd
   return (
     <section className={`flex flex-col gap-2 rounded-lg border p-4 ${tone}`} aria-label="減量建議">
       <p className="flex items-center gap-2 font-semibold">
-        <Icon name={advice.level === 'ok' ? 'check' : 'info'} size={18} className={advice.level === 'ok' ? 'text-go' : 'text-warn'} />
+        {advice.level === 'ok' && advice.actions.length === 0 ? (
+          <Icon name="check" size={18} className="text-go" />
+        ) : (
+          <Icon name="info" size={18} className={advice.level === 'ok' ? 'text-chalk-3' : 'text-warn'} />
+        )}
         {advice.title}
       </p>
       {advice.reasons.length > 0 && <p className="text-sm text-chalk-2">{advice.reasons.join('；')}。</p>}

@@ -113,3 +113,48 @@ test('375px：新增產品與目標的視窗按鈕都在畫面內', async ({ pag
   await page.getByRole('button', { name: '新增目標' }).click();
   await expectDialogButtonsInView(page, '新增目標');
 });
+
+test('輸入後直接返回或按 Enter 也會存（不靠 blur）', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/');
+  await page.goto('./#/recovery');
+  const sleep = page.getByLabel('睡眠時數');
+  await sleep.click();
+  await sleep.pressSequentially('6.5', { delay: 50 });
+  // 模擬 Android 返回鍵：沒有 blur 就離開頁面
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect.poll(async () => (await readAll<{ date: string; sleepHours?: number }>(page, 'dailyLogs')).find((r) => r.date === appDay())?.sleepHours).toBe(6.5);
+
+  const card = page.getByRole('region', { name: '今天狀態' });
+  await card.getByLabel('睡眠時數').click();
+  await card.getByLabel('睡眠時數').pressSequentially('7', { delay: 50 });
+  await page.keyboard.press('Enter');
+  await page.reload();
+  await expect.poll(async () => (await readAll<{ date: string; sleepHours?: number }>(page, 'dailyLogs')).find((r) => r.date === appDay())?.sleepHours).toBe(7);
+});
+
+test('目標方向依目前紀錄判斷：72 kg 設「體重 65 kg」是減少，不會直接達成', async ({ page }) => {
+  await onboard(page, { weight: '72' });
+  await page.goto('./#/goals');
+  await page.getByRole('button', { name: '新增目標' }).click();
+  await page.getByLabel('目標值').fill('65');
+  await page.getByLabel('目標值').blur();
+  await expect(page.getByRole('radio', { name: '減少到' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('目前 72 kg')).toBeVisible();
+  await page.getByRole('button', { name: '儲存' }).click();
+  const card = page.getByRole('region', { name: '體重 65 kg' });
+  await expect(card).toContainText('0%');
+  await expect(card).toContainText('還差 7 kg');
+  await expect(card).not.toContainText('達成');
+});
+
+test('直接開子頁網址：返回鍵往上一層走，不會在兩頁之間打轉', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/settings/data');
+  await page.reload();
+  await page.getByRole('link', { name: '返回' }).click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await page.getByRole('link', { name: '返回' }).click();
+  await expect(page).toHaveURL(/#\/more$/);
+});

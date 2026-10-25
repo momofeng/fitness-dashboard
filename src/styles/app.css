@@ -32,16 +32,16 @@
   --go-soft: rgb(70 184 100 / 0.14);
   --warn-soft: rgb(224 166 60 / 0.14);
   --danger-soft: rgb(242 109 98 / 0.14);
-  /* 月曆熱圖：單一綠色、由暗到亮（深色模式）；已驗證亮度單調、日期字對比 ≥ 4.5 */
+  /* 月曆熱圖：單一綠色、由暗到亮（深色模式）；已驗證亮度單調、相鄰級距對比 ≥ 1.45、日期字對比 ≥ 4.5 */
   --heat-0: #24282d;
-  --heat-1: #22502f;
-  --heat-2: #245c35;
-  --heat-3: #2a7340;
-  --heat-4: #4fb86a;
+  --heat-1: #1f4a2c;
+  --heat-2: #2b6a3d;
+  --heat-3: #3f9157;
+  --heat-4: #5cc777;
   --heat-ink-0: #b4b1aa;
   --heat-ink-1: #edebe6;
   --heat-ink-2: #edebe6;
-  --heat-ink-3: #edebe6;
+  --heat-ink-3: #0e0f11;
   --heat-ink-4: #0e0f11;
 }
 
@@ -54,7 +54,7 @@
   --well: #e9e7e1;
   --chalk: #1a1b1d;
   --chalk-2: #474744;
-  --chalk-3: #6f6d68;
+  --chalk-3: #64625d;
   --chalk-4: #a19e97;
   --seam: rgb(26 27 29 / 0.1);
   --seam-strong: rgb(26 27 29 / 0.18);
@@ -65,14 +65,14 @@
   --fat: #a8741c;
   --go: #237538;
   --warn: #8a5c0e;
-  --danger: #c8372f;
+  --danger: #b02e27;
   --go-soft: rgb(47 143 72 / 0.12);
   --warn-soft: rgb(168 116 28 / 0.12);
   --danger-soft: rgb(200 55 47 / 0.1);
   /* 月曆熱圖（淺色模式：由淺到深） */
   --heat-0: #ecebe6;
-  --heat-1: #d3ead9;
-  --heat-2: #9dd2ab;
+  --heat-1: #bfe0c7;
+  --heat-2: #8ccb9d;
   --heat-3: #4fa767;
   --heat-4: #23703a;
   --heat-ink-0: #474744;

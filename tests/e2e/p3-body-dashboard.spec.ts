@@ -71,6 +71,8 @@ test('匯出 → 清除 → 還原 → 再匯出，兩份一致；壞檔不改�
   await page.getByRole('button', { name: '清除所有資料' }).click();
   await page.getByRole('button', { name: '確定清除' }).click();
   await expect(page).toHaveURL(/onboarding/);
+  // 清除後會重新載入頁面：等首次設定畫面出現再讀資料，避免撞上重新載入
+  await expect(page.getByRole('checkbox', { name: '我了解，開始設定' })).toBeVisible();
   expect(await readAll(page, 'foodLogs')).toHaveLength(0);
   await importFile(page, { name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(first)) });
   await page.getByRole('button', { name: '取代並還原' }).click();
