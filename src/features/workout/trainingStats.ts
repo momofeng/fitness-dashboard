@@ -32,12 +32,18 @@ export interface ExerciseSeriesPoint {
 }
 
 /** 某動作每場的最佳 e1RM（給進步曲線與停滯偵測） */
-export async function exerciseSeries(exerciseId: string, settings: Settings): Promise<ExerciseSeriesPoint[]> {
+export async function exerciseSeries(exerciseId: string, settings: Settings, opts: { skipDeload?: boolean } = {}): Promise<ExerciseSeriesPoint[]> {
   const get = await loadExerciseLookup();
   const ex = get(exerciseId);
   if (!ex) return [];
   const bw = await latestWeightKg();
-  const sets = await exerciseHistory(exerciseId);
+  let sets = await exerciseHistory(exerciseId);
+  if (opts.skipDeload) {
+    const wids = [...new Set(sets.map((s) => s.workoutId))];
+    const ws = await db.workouts.bulkGet(wids);
+    const deloadIds = new Set(wids.filter((_, i) => ws[i]?.deload));
+    sets = sets.filter((s) => !deloadIds.has(s.workoutId));
+  }
   const byWorkout = new Map<string, typeof sets>();
   for (const s of sets) byWorkout.set(s.workoutId, [...(byWorkout.get(s.workoutId) ?? []), s]);
   const out: ExerciseSeriesPoint[] = [];
@@ -54,7 +60,7 @@ export async function exerciseSeries(exerciseId: string, settings: Settings): Pr
 export async function stalledExercises(exerciseIds: string[], settings: Settings, today: string) {
   const out: Array<{ exerciseId: string; daysSincePr: number }> = [];
   for (const id of [...new Set(exerciseIds)]) {
-    const series = await exerciseSeries(id, settings);
+    const series = await exerciseSeries(id, settings, { skipDeload: true });
     const r = detectStall(
       series.map((p) => ({ date: p.date, bestE1rm: p.best })),
       today,

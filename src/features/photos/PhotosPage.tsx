@@ -8,6 +8,7 @@ import { PHOTO_POSE_LABEL, PHOTO_POSES, type PhotoPose } from '../../content/typ
 import { diffDays, shortDateLabel, toDateKey } from '../../core/dates';
 import { fmt, toDisplayWeight } from '../../core/units';
 import { db } from '../../db/db';
+import { isValidDay } from '../../db/limits';
 import { addPhoto, deletePhoto, getPhotoBlob, restorePhoto, updatePhotoMeta, usePhotos } from '../../db/repo/photos';
 import type { Photo } from '../../db/schemas';
 import { processPhoto, type ProcessedPhoto } from '../../lib/image';
@@ -181,7 +182,7 @@ function NewPhotoSheet({ photo, today, onClose }: { photo: ProcessedPhoto; today
         <Button
           variant="primary"
           block
-          disabled={busy || !date || date > today}
+          disabled={busy || !isValidDay(date) || date > today}
           onClick={async () => {
             setBusy(true);
             try {
@@ -201,15 +202,16 @@ function NewPhotoSheet({ photo, today, onClose }: { photo: ProcessedPhoto; today
     >
       <div className="flex flex-col gap-4">
         <img src={photo.thumb} alt="預覽" className="mx-auto max-h-60 rounded-md object-contain" />
-        <p className="num text-center text-cap text-chalk-4">
+        <p className="num text-center text-cap text-chalk-3">
           {photo.width}×{photo.height} · {fmt(photo.blob.size / 1024, 0)} KB
         </p>
         <Field label="姿勢">
           <PoseChips value={pose} onChange={(p) => p && setPose(p)} />
         </Field>
         <Field label="日期">
-          <input type="date" className="field" value={date} max={today} onChange={(e) => setDate(e.target.value)} aria-label="拍攝日期" />
+          <input type="date" className="field" value={date} max={today} aria-invalid={!isValidDay(date) || undefined} onChange={(e) => setDate(e.target.value)} aria-label="拍攝日期" />
         </Field>
+        {!isValidDay(date) && <p className="text-sm text-danger">日期格式不正確（請用日期選擇器選，或輸入 4 位數年份）</p>}
         <TextField label="備註（選填）" value={note} maxLength={200} placeholder="例如：早上空腹、增肌第 8 週" onChange={(e) => setNote(e.target.value)} />
       </div>
     </Sheet>
@@ -247,7 +249,7 @@ function PhotoViewer({ photo, today, onClose }: { photo: Photo; today: string; o
             <TextField label="備註" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
             <Button
               variant="primary"
-              disabled={!date || date > today}
+              disabled={!isValidDay(date) || date > today}
               onClick={() =>
                 void updatePhotoMeta(photo.id, { date, pose, note: note.trim() })
                   .then(onClose)
@@ -276,7 +278,7 @@ function PhotoViewer({ photo, today, onClose }: { photo: Photo; today: string; o
             </Button>
           </div>
         )}
-        <p className="num text-cap text-chalk-4">
+        <p className="num text-cap text-chalk-3">
           {photo.width}×{photo.height} · {fmt(photo.bytes / 1024, 0)} KB
         </p>
       </div>

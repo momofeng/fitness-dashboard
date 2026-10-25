@@ -70,7 +70,7 @@ export default function MorePage() {
           </div>
         </Section>
       ))}
-      <p className="text-center text-cap text-chalk-4">版本 {__APP_VERSION__}</p>
+      <p className="text-center text-cap text-chalk-3">版本 {__APP_VERSION__}</p>
     </div>
   );
 }

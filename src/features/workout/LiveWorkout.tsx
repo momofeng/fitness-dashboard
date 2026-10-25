@@ -201,6 +201,11 @@ function Session({
       <RestTimer workout={workout} settings={settings} />
 
       <div className="flex flex-col gap-4 pt-4">
+        {workout.deload && (
+          <p className="rounded-md border border-seam-strong bg-go-soft px-3 py-2 text-sm text-chalk" role="note">
+            減量週：這場的組數與重量已經調低，動作照常練、不要做到力竭。完成後不會改變進步紀錄。
+          </p>
+        )}
         {workout.plan.map((item, index) => {
           const firstIndex = workout.plan.findIndex((q) => q.exerciseId === item.exerciseId);
           if (firstIndex !== index) return null;
@@ -319,7 +324,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
     <div className="flex flex-col gap-0.5 rounded-md bg-well p-3">
       <span className="label">{label}</span>
       <span className="num text-h3 font-semibold">{value}</span>
-      {sub && <span className="text-cap text-chalk-4">{sub}</span>}
+      {sub && <span className="text-cap text-chalk-3">{sub}</span>}
     </div>
   );
 }
@@ -419,13 +424,13 @@ function ExerciseCard({
         <IconButton icon="more" label={`${ex?.nameZh ?? ''} 選項`} onClick={onMenu} />
       </div>
 
-      {isBarbell && targetU != null && targetU > setup.bar && (
+      {isBarbell && targetU != null && targetU - setup.bar >= setup.step - 1e-6 && (
         <button type="button" onClick={() => setPlateOpen(true)} className="press mx-4 mb-2 flex items-center gap-2 rounded-md bg-well px-3 py-2 text-left" aria-label="槓片配重">
           <PlateBar target={targetU} bar={setup.bar} stock={setup.stock} unit={setup.unit} compact />
           <span className="num min-w-0 flex-1 truncate text-sm text-chalk-3">
             每側 {fmt((targetU - setup.bar) / 2, 2)} {setup.unit}
           </span>
-          <Icon name="chevronRight" size={16} className="text-chalk-4" />
+          <Icon name="chevronRight" size={16} className="text-chalk-3" />
         </button>
       )}
 
@@ -441,7 +446,7 @@ function ExerciseCard({
                 const logged = warmups[i];
                 return (
                   <div key={i} className="flex items-center gap-3 rounded-md bg-well px-3 py-1.5">
-                    <span className="w-6 text-cap text-chalk-4">暖</span>
+                    <span className="w-6 text-cap text-chalk-3">暖</span>
                     <span className="num flex-1 text-base">
                       {fmt(toDisplayWeight(w.weightKg, unit), 2)} {unit} × {w.reps}
                     </span>
@@ -463,7 +468,7 @@ function ExerciseCard({
       )}
 
       <div className="flex flex-col gap-1.5 px-2 pb-3 sm:px-4">
-        <div className={`grid items-center gap-2 px-2 text-cap text-chalk-4 ${settings.training.useRir ? 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_64px_48px]' : 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_48px]'}`}>
+        <div className={`grid items-center gap-2 px-2 text-cap text-chalk-3 ${settings.training.useRir ? 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_64px_48px]' : 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_48px]'}`}>
           <span>組</span>
           <span className="text-center">重量（{unit}）</span>
           <span className="text-center">次數</span>
@@ -482,11 +487,12 @@ function ExerciseCard({
             onLog={(v) => onLog(item, v)}
           />
         ))}
+        {(drops.length > 0 || dropDraft) && <p className="px-2 pt-1 text-cap text-chalk-3">遞減組（不列入進步規則與 PR）</p>}
         {drops.map((d, i) => (
           <SetRow
             key={d.id}
             n={i + 1}
-            label="遞"
+            label="遞減"
             name={`遞減組 ${i + 1}`}
             logged={d}
             defaults={{ weightKg: d.weightKg, reps: d.reps }}
@@ -500,13 +506,13 @@ function ExerciseCard({
           <SetRow
             key={`drop-draft-${drops.length}`}
             n={drops.length + 1}
-            label="遞"
+            label="遞減"
             name={`遞減組 ${drops.length + 1}`}
             logged={undefined}
             defaults={dropDefaults}
             unit={unit}
             useRir={settings.training.useRir}
-            isNext
+            isNext={false}
             onLog={async (v) => {
               await onLog(item, v, 'drop');
               setDropDraft(false);
@@ -534,7 +540,7 @@ function ExerciseCard({
             遞減組
           </button>
         </div>
-        {dropDraft && <p className="px-2 text-cap text-chalk-4">遞減組：正式組後立刻減重、做到接近力竭。不列入進步規則與 PR。</p>}
+        {dropDraft && <p className="px-2 text-cap text-chalk-3">做完一組正式組後立刻減重，再做到接近力竭。</p>}
       </div>
 
       <Sheet open={plateOpen} onClose={() => setPlateOpen(false)} title="槓片配重">
@@ -601,7 +607,7 @@ function SetRow({
         logged ? 'bg-go-soft/60' : isNext ? 'bg-iron-2 ring-1 ring-seam-strong' : ''
       }`}
     >
-      <span className={`num text-center font-semibold ${label ? 'text-sm' : 'text-base'} ${logged ? 'text-go' : 'text-chalk-3'}`}>{label ?? n}</span>
+      <span className={`num text-center font-semibold ${label ? 'text-cap leading-tight' : 'text-base'} ${logged ? 'text-go' : 'text-chalk-3'}`}>{label ?? n}</span>
       <NumberInput
         ariaLabel={`${name}重量`}
         value={weight == null ? null : Number(toDisplayWeight(weight, unit).toFixed(2))}
@@ -714,7 +720,7 @@ function ExerciseMenu({
           <Button icon="swap" block onClick={onSwap}>
             換成其他動作
           </Button>
-          {loggedCount > 0 && <p className="text-cap text-chalk-4">已記錄的組會保留在原動作，新動作排在後面。</p>}
+          {loggedCount > 0 && <p className="text-cap text-chalk-3">已記錄的組會保留在原動作，新動作排在後面。</p>}
           {confirmRemove && loggedCount > 0 && (
             <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">已經記錄了 {loggedCount} 組，移除會一起刪掉（之後可以按「復原」）。</p>
           )}

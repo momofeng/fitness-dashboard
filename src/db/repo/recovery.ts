@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { SORE_AREAS, type SoreArea } from '../../content/types';
 import { addDays } from '../../core/dates';
 import { db } from '../db';
-import { assertRange } from '../limits';
+import { assertDay, assertRange } from '../limits';
 import type { DailyLog } from '../schemas';
 import { updateSettings } from './settings';
 
@@ -16,6 +16,7 @@ export interface RecoveryPatch {
 }
 
 export async function setDailyRecovery(date: string, patch: RecoveryPatch) {
+  assertDay(date);
   assertRange('sleepH', patch.sleepHours, '睡眠時數');
   assertRange('energy', patch.energy, '精力');
   if (patch.energy != null && !Number.isInteger(patch.energy)) throw new RangeError('精力必須是 1–5 的整數');
@@ -41,6 +42,7 @@ export async function setDailyRecovery(date: string, patch: RecoveryPatch) {
 
 /** 飲食記錄是否完整（自適應 TDEE 用）。undefined = 交給熱量自動判斷 */
 export async function setIntakeComplete(date: string, value: boolean | undefined) {
+  assertDay(date);
   await db.transaction('rw', db.dailyLogs, async () => {
     const cur = await db.dailyLogs.get(date);
     const next: DailyLog = { ...(cur ?? { date, waterMl: 0 }), updatedAt: Date.now() };
@@ -63,8 +65,22 @@ export async function startDeloadWeek(today: string) {
   await updateSettings({ recovery: { deloadUntil: addDays(today, DELOAD_DAYS - 1) } });
 }
 
-export async function endDeloadWeek() {
-  await updateSettings({ recovery: { deloadUntil: null } });
+/** 提前結束：結束日改成昨天（不是清空），之後 14 天內不會再建議減量週；回傳原本的結束日供復原 */
+export async function endDeloadWeek(today: string): Promise<string | null> {
+  const prev = (await db.settings.get('app'))?.recovery.deloadUntil ?? null;
+  await updateSettings({ recovery: { deloadUntil: addDays(today, -1) } });
+  return prev;
+}
+
+export async function restoreDeloadUntil(until: string | null) {
+  await updateSettings({ recovery: { deloadUntil: until } });
+}
+
+/** 減量週結束後多少天內不再建議減量 */
+export const DELOAD_COOLDOWN_DAYS = 14;
+
+export function recentlyDeloaded(deloadUntil: string | null, today: string): boolean {
+  return deloadUntil != null && deloadUntil < today && deloadUntil >= addDays(today, -DELOAD_COOLDOWN_DAYS);
 }
 
 export function isDeloadActive(deloadUntil: string | null, today: string): boolean {

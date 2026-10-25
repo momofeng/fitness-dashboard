@@ -47,6 +47,11 @@ export interface NumberInputProps {
    * 照實回傳數值並標紅，由表單決定能不能儲存
    */
   clamp?: boolean;
+  /**
+   * 「確定」的時機：離開欄位、或按 −／＋。需要存檔的欄位用這個，不要在 onChange 每打一個字就存
+   * （逐字輸入 25 時，中間的 2 會先被存進去）
+   */
+  onCommit?: (v: number | null) => void;
 }
 
 /**
@@ -68,6 +73,7 @@ export function NumberInput({
   id,
   className = '',
   clamp = true,
+  onCommit,
 }: NumberInputProps) {
   const [text, setText] = useState(fmtInput(value, decimals));
   const [focused, setFocused] = useState(false);
@@ -86,6 +92,7 @@ export function NumberInput({
     const base = value ?? 0;
     const next = clampV(Number((base + dir * step).toFixed(6)));
     onChange(next);
+    onCommit?.(next);
     setText(fmtInput(next, decimals));
   };
 
@@ -122,6 +129,7 @@ export function NumberInput({
             const n = parse(text);
             const v = n == null ? null : clamp ? clampV(n) : n;
             onChange(v);
+            onCommit?.(v);
             setText(fmtInput(v, decimals));
           }}
           onChange={(e) => {

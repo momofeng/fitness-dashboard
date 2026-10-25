@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { barcodeVariants, normalizeBarcode } from '../../core/barcode';
 import { portionFactor, scaleNutrients } from '../../core/nutrition';
 import { db, newId } from '../db';
-import { clampTo } from '../limits';
+import { assertDay, clampTo } from '../limits';
 import type { CustomFood, DailyLog, FoodLog, Meal, MealTemplate, PerNutrients } from '../schemas';
 
 /** 搜尋與記錄用的統一食物格式（衛福部、自建、餐點組合） */
@@ -109,6 +109,7 @@ export async function restoreFoodLogs(rows: FoodLog[]) {
 
 /** 快速加入：只填熱量與巨量（外食、便當） */
 export async function quickAdd(input: { date: string; meal: Meal; name: string; kcal: number; protein: number; fat: number; carbs: number }) {
+  assertDay(input.date);
   const now = Date.now();
   const per: PerNutrients = { basis: 'perServing', kcal: input.kcal, protein: input.protein, fat: input.fat, carbs: input.carbs };
   await db.foodLogs.put({
@@ -134,6 +135,7 @@ export async function quickAdd(input: { date: string; meal: Meal; name: string; 
 
 /** 把某天（或某一餐）的紀錄複製到另一天 */
 export async function copyLogs(fromDate: string, toDate: string, meal?: Meal): Promise<number> {
+  assertDay(toDate);
   const src = await db.foodLogs.where('date').equals(fromDate).toArray();
   const rows = src.filter((r) => !meal || r.meal === meal);
   const now = Date.now();
@@ -164,6 +166,7 @@ function scaledPer(r: FoodLog): PerNutrients {
 }
 
 export async function logMealTemplate(t: MealTemplate, date: string, meal: Meal, multiplier = 1) {
+  assertDay(date);
   const now = Date.now();
   const rows: FoodLog[] = t.items.map((it, i) => {
     const qty = it.qty * multiplier;
@@ -206,6 +209,7 @@ export async function findFoodByBarcode(code: string): Promise<CustomFood | unde
 }
 
 export async function addWater(date: string, ml: number) {
+  assertDay(date);
   await db.transaction('rw', db.dailyLogs, async () => {
     const cur = await db.dailyLogs.get(date);
     const next: DailyLog = { ...(cur ?? { date, waterMl: 0 }), waterMl: clampTo('waterMl', (cur?.waterMl ?? 0) + ml), updatedAt: Date.now() };

@@ -86,7 +86,7 @@ export default function SettingsPage() {
               <span className="num text-sm text-chalk-3">
                 蛋白質 {targets.protein} g · 碳水 {targets.carbs} g · 脂肪 {targets.fat} g
               </span>
-              <span className="num w-full text-cap text-chalk-4">
+              <span className="num w-full text-cap text-chalk-3">
                 依最近體重 {fmt(weightKg)} kg 估算消耗 {targets.tdee.toLocaleString()} kcal
               </span>
             </div>
@@ -148,7 +148,7 @@ export default function SettingsPage() {
             <Field label="預設休息">
               <NumberInput ariaLabel="預設休息秒數" value={s.training.defaultRestSec} step={15} decimals={0} min={0} max={900} suffix="秒" onChange={(v) => v != null && set({ training: { defaultRestSec: Math.round(v) } })} />
             </Field>
-            <Field label="減量幅度" hint="減量時重量 ×">
+            <Field label="連續失敗後退重" hint="退到原本重量的幾 %">
               <NumberInput ariaLabel="減量後重量百分比" value={Math.round(s.training.deloadFactor * 100)} step={5} decimals={0} min={50} max={100} suffix="%" onChange={(v) => v != null && set({ training: { deloadFactor: v / 100 } })} />
             </Field>
             <Field label="線性進步：失敗幾次減量">
@@ -286,12 +286,13 @@ function WarmupEditor({ s }: { s: Settings }) {
       <Button
         size="sm"
         icon="plus"
-        disabled={w.steps.length >= maxSteps}
+        disabled={w.steps.length >= maxSteps || (w.steps.at(-1)?.pct ?? 0) >= LIMITS.warmupPct[1]}
         onClick={() => void save({ ...w, steps: [...w.steps, { pct: Math.min(LIMITS.warmupPct[1], (w.steps.at(-1)?.pct ?? 30) + 10), reps: 2 }] })}
+        title={(w.steps.at(-1)?.pct ?? 0) >= LIMITS.warmupPct[1] ? '最後一步已經是上限' : undefined}
       >
         新增一步
       </Button>
-      <p className="text-cap text-chalk-4">百分比是正式組重量的幾 %；與前一組差不到 10% 或太接近正式組的會自動略過。空槓填 0 表示不做空槓組。</p>
+      <p className="text-cap text-chalk-3">百分比是正式組重量的幾 %；與前一組差不到 10% 或太接近正式組的會自動略過。空槓填 0 表示不做空槓組。</p>
     </div>
   );
 }
@@ -387,7 +388,7 @@ function EquipmentCard({ s }: { s: Settings }) {
           onChange={(rows) => void updateSettings({ equipment: { plates: sortDesc(rows).map((r) => ({ kg: r.w, pairs: r.pairs })) } })}
         />
       )}
-      <p className="text-cap text-chalk-4">{lb ? '磅制使用 lb 槓片計算配重；切回公斤會改用公斤槓片。' : '切換成磅制後會改用磅的槓片設定。'}</p>
+      <p className="text-cap text-chalk-3">{lb ? '磅制使用 lb 槓片計算配重；切回公斤會改用公斤槓片。' : '切換成磅制後會改用磅的槓片設定。'}</p>
     </Card>
   );
 }

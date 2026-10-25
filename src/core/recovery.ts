@@ -113,6 +113,9 @@ export function deloadAdvice(
       offerDeload: false,
     };
   }
+  if (!hasData) {
+    return { level: 'ok', title: '還沒有足夠的恢復紀錄', reasons: [], actions: ['每天記錄睡眠與精力（約 5 秒），記滿 4 天就能判斷恢復狀況'], offerDeload: false };
+  }
   return { level: 'ok', title: '恢復狀況正常', reasons: [], actions: [], offerDeload: false };
 }
 

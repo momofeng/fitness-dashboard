@@ -34,7 +34,7 @@ export default function ExerciseLibrary() {
         }
       />
       <div className="relative">
-        <Icon name="search" size={18} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-chalk-4" />
+        <Icon name="search" size={18} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-chalk-3" />
         <input type="search" className="field pl-9" placeholder="搜尋中文、別名或英文" value={q} onChange={(e) => setQ(e.target.value)} aria-label="搜尋動作" />
       </div>
       <MuscleChips value={muscle} onChange={setMuscle} />
@@ -44,7 +44,7 @@ export default function ExerciseLibrary() {
             <span className="min-w-0 flex-1">
               <ExerciseRowContent e={e} />
             </span>
-            <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-4" />
+            <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-3" />
           </button>
         ))}
         {list.length === 0 && <p className="p-6 text-center text-chalk-3">找不到符合的動作。</p>}

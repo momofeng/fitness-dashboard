@@ -1,13 +1,28 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Icon } from './Icon';
 
-/** 頁面標題列：手機上是頁首，桌面上與內容同寬 */
+/**
+ * 頁面標題列：手機上是頁首，桌面上與內容同寬。
+ * 返回：App 內有上一頁就回上一頁（從首頁點進恢復頁，返回回到首頁）；直接開啟網址時才去 back 指定的頁面。
+ */
 export function PageHeader({ title, back, actions, sub }: { title: ReactNode; back?: string; actions?: ReactNode; sub?: ReactNode }) {
+  const navigate = useNavigate();
   return (
     <header className="flex min-h-14 items-center gap-2 pt-[max(8px,env(safe-area-inset-top))] pb-2">
       {back && (
-        <Link to={back} aria-label="返回" className="press -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-chalk-2 hover:bg-iron-2">
+        <Link
+          to={back}
+          aria-label="返回"
+          onClick={(e) => {
+            const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+            if (idx > 0) {
+              e.preventDefault();
+              navigate(-1);
+            }
+          }}
+          className="press -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-chalk-2 hover:bg-iron-2"
+        >
           <Icon name="chevronLeft" size={22} />
         </Link>
       )}
@@ -85,7 +100,7 @@ export function ListRow({
   const inner = (
     <>
       <div className="min-w-0 flex-1">{children}</div>
-      {trailing ?? ((to || onClick) && <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-4" />)}
+      {trailing ?? ((to || onClick) && <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-3" />)}
     </>
   );
   const cls = `press flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left ${to || onClick ? 'hover:bg-iron-2' : ''} ${className}`;

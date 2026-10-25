@@ -5,7 +5,7 @@ import { dailyAverages, ffmi, movingAverage, rateVerdict, trendSeries, weeklyRat
 import { addDays, relativeDayLabel, shortDateLabel } from '../../core/dates';
 import { fmt, fromDisplayWeight, toDisplayWeight } from '../../core/units';
 import { db } from '../../db/db';
-import { LIMITS } from '../../db/limits';
+import { isValidDay, LIMITS } from '../../db/limits';
 import { moveBodyMetric, upsertBodyMetric, useBodyMetrics, validateBodyPatch } from '../../db/repo/body';
 import { CIRC_LABEL, CIRCUMFERENCES, type BodyMetric, type Circumference } from '../../db/schemas';
 import { Button, IconButton } from '../../ui/Button';
@@ -75,7 +75,7 @@ export default function BodyPage() {
             {avg7 != null ? dw(avg7, 2) : '–'}
             <span className="ml-1 text-sm font-normal text-chalk-3">{unit}</span>
           </span>
-          <span className="text-cap text-chalk-4">{avg7 == null ? '7 天內記錄 4 次以上才計算' : '比單日體重穩定，看這個'}</span>
+          <span className="text-cap text-chalk-3">{avg7 == null ? '7 天內記錄 4 次以上才計算' : '比單日體重穩定，看這個'}</span>
         </div>
         <div className="card flex flex-col p-4">
           <span className="label">週增重率</span>
@@ -83,7 +83,7 @@ export default function BodyPage() {
             {rate != null ? `${rate >= 0 ? '+' : ''}${fmt(rate, 2)}` : '–'}
             <span className="ml-1 text-sm font-normal text-chalk-3">%</span>
           </span>
-          <span className="text-cap text-chalk-4">目標 +{settings.nutrition.weeklyGainPct}%／週</span>
+          <span className="text-cap text-chalk-3">目標 +{settings.nutrition.weeklyGainPct}%／週</span>
         </div>
       </div>
       {verdict && (
@@ -136,7 +136,7 @@ export default function BodyPage() {
           ) : (
             <p className="text-sm text-chalk-3">填入體脂率（體脂計或 InBody）後，會算出除脂體重與 FFMI。</p>
           )}
-          {f && <p className="text-cap text-chalk-4">FFMI＝除脂體重 ÷ 身高²，再依身高校正；一般男性約 18–20，長期訓練約 21–23。體脂計的數字誤差不小，看趨勢比看單次準。</p>}
+          {f && <p className="text-cap text-chalk-3">FFMI＝除脂體重 ÷ 身高²，再依身高校正；一般男性約 18–20，長期訓練約 21–23。體脂計的數字誤差不小，看趨勢比看單次準。</p>}
         </div>
       </Section>
 
@@ -149,7 +149,7 @@ export default function BodyPage() {
                 <div key={c} className="flex flex-col bg-iron p-3">
                   <span className="label">{CIRC_LABEL[c]}</span>
                   <span className="num text-h4 font-semibold">{fmt(last!.circ[c]!)} cm</span>
-                  <span className="num text-cap text-chalk-4">
+                  <span className="num text-cap text-chalk-3">
                     {d != null && d !== 0 ? `${d > 0 ? '+' : ''}${fmt(d)} cm · ` : ''}
                     {relativeDayLabel(last!.date, today)}
                   </span>
@@ -240,6 +240,7 @@ function QuickWeight({ today, row, unit }: { today: string; row: BodyMetric | un
 
 function MetricSheet({ date: initialDate, row, unit, onClose }: { date: string; row: BodyMetric | undefined; unit: 'kg' | 'lb'; onClose: () => void }) {
   const [date, setDate] = useState(initialDate);
+  const { today } = useTargets();
   const [weight, setWeight] = useState<number | null>(row?.weightKg != null ? Number(toDisplayWeight(row.weightKg, unit).toFixed(2)) : null);
   const [fat, setFat] = useState<number | null>(row?.bodyFatPct ?? null);
   const [circ, setCirc] = useState<Partial<Record<Circumference, number>>>(row?.circ ?? {});
@@ -250,7 +251,7 @@ function MetricSheet({ date: initialDate, row, unit, onClose }: { date: string; 
     circ: Object.fromEntries(Object.entries(circ).filter(([, v]) => v != null)) as Partial<Record<Circumference, number>>,
     note: note.trim(),
   };
-  const error = validateBodyPatch(patch);
+  const error = !isValidDay(date) ? '日期格式不正確（請用日期選擇器選，或輸入 4 位數年份）' : validateBodyPatch(patch);
   const targetHasData = useLiveQuery(async () => (date !== initialDate ? !!(await db.bodyMetrics.get(`body:${date}`)) : false), [date, initialDate]);
   return (
     <Sheet
@@ -276,7 +277,7 @@ function MetricSheet({ date: initialDate, row, unit, onClose }: { date: string; 
     >
       <div className="flex flex-col gap-4">
         <Field label="日期" hint={row && date !== initialDate ? `會把這筆從 ${initialDate} 移到 ${date}` : undefined}>
-          <input type="date" className="field" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          <input type="date" className="field" value={date} max={today} aria-invalid={!isValidDay(date) || undefined} onChange={(e) => setDate(e.target.value)} />
         </Field>
         {targetHasData && <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">{date} 已經有紀錄，儲存後會以這裡填的數值覆蓋。</p>}
         <div className="grid grid-cols-2 gap-3">

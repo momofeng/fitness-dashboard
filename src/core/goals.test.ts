@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoHabitDone, bestWeightForReps, daysLeft, EMPTY_DAY, goalProgress, heatLevel, monthGrid, weekCount } from './goals';
+import { autoHabitDone, bestWeightForReps, daysLeft, defaultGoalDirection, EMPTY_DAY, goalProgress, heatLevel, monthGrid, weekCount } from './goals';
 
 describe('goalProgress', () => {
   it.each([
@@ -15,6 +15,16 @@ describe('goalProgress', () => {
     const p = goalProgress(start, target, current);
     expect(p.pct).toBeCloseTo(pct);
     expect(p.done).toBe(done);
+  });
+  it('起點未知時，達成只看有沒有越過目標（依建立時的方向）', () => {
+    expect(goalProgress(null, 100, 102.5, 'up')).toMatchObject({ done: true, pct: 1 });
+    expect(goalProgress(null, 15, 14, 'down')).toMatchObject({ done: true, pct: 1 });
+    expect(goalProgress(null, 15, 18, 'down')).toMatchObject({ done: false, remaining: 3, direction: 'down' });
+    // 腰圍 85 → 82，目標 80
+    expect(goalProgress(85, 80, 82, 'down').pct).toBeCloseTo(0.6);
+  });
+  it('動作目標起點高於目標時仍是往上', () => {
+    expect(goalProgress(110, 100, 105, 'up')).toMatchObject({ done: true });
   });
   it('沒有目前值', () => {
     expect(goalProgress(70, 75, null)).toMatchObject({ pct: null, done: false, remaining: null });
@@ -47,8 +57,8 @@ describe('autoHabitDone', () => {
   const t = { proteinG: 130, waterMl: 3000 };
   it.each([
     ['weighIn', { weighed: true }, true],
-    ['protein', { proteinG: 124 }, true],
-    ['protein', { proteinG: 120 }, false],
+    ['protein', { proteinG: 117 }, true],
+    ['protein', { proteinG: 116 }, false],
     ['water', { waterMl: 3000 }, true],
     ['water', { waterMl: 2999 }, false],
     ['sleep', { sleepH: 7 }, true],
@@ -96,7 +106,8 @@ it.each([
   ['training', 16, 3],
   ['training', 21, 4],
   ['protein', 0.4, 1],
-  ['protein', 0.95, 4],
+  ['protein', 0.9, 4],
+  ['protein', 0.89, 3],
   ['habits', 1 / 3, 1],
   ['habits', 0.5, 2],
   ['habits', 0.9, 3],
@@ -106,4 +117,11 @@ it.each([
   ['sleep', 8, 4],
 ] as const)('heatLevel %s %s → %i', (m, v, lv) => {
   expect(heatLevel(m, v)).toBe(lv);
+});
+
+it('defaultGoalDirection', () => {
+  expect(defaultGoalDirection('bodyFat', null)).toBe('down');
+  expect(defaultGoalDirection('circ', 'waist')).toBe('down');
+  expect(defaultGoalDirection('circ', 'arm')).toBe('up');
+  expect(defaultGoalDirection('lift', null)).toBe('up');
 });

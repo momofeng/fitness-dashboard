@@ -1,6 +1,8 @@
 // 數值範圍：Zod schema（匯入驗證）、輸入元件與寫入前的檢查共用同一份，
 // 避免「畫面允許輸入、但備份還原時被擋下」——匯入是一筆錯就整批拒絕。
 
+import { isDateKey } from '../core/dates';
+
 export const LIMITS = {
   weightKg: [20, 400],
   bodyFatPct: [2, 70],
@@ -77,6 +79,21 @@ export function assertRange(key: LimitKey, v: number | null | undefined, label: 
     const [lo, hi] = LIMITS[key];
     throw new RangeError(`${label} 超出範圍（${lo}–${hi}）：${v}`);
   }
+}
+
+// ---------- 日期 ----------
+
+/** 寫入的日期必須是合法的 YYYY-MM-DD，年份在這個範圍內（擋下鍵盤打出的 0026-…、20261-…） */
+export const YEAR_RANGE = [2000, 2100] as const;
+
+export function isValidDay(key: string | null | undefined): key is string {
+  if (!key || !isDateKey(key)) return false;
+  const y = Number(key.slice(0, 4));
+  return y >= YEAR_RANGE[0] && y <= YEAR_RANGE[1];
+}
+
+export function assertDay(key: string | null | undefined, label = '日期'): void {
+  if (!isValidDay(key)) throw new RangeError(`${label}格式不正確：${key ?? '（空白）'}`);
 }
 
 // ---------- 進度照 ----------

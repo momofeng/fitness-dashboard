@@ -50,7 +50,7 @@ export function AdaptiveTdeeCard({ settings, targets, today }: { settings: Setti
   return (
     <section className="card flex flex-col gap-3 p-4" aria-label="自適應 TDEE">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="font-semibold">自適應 TDEE</p>
+        <p className="font-semibold">自適應 TDEE（每日消耗）</p>
         <p className="num text-sm text-chalk-3">
           目前用 {applied ? '自適應' : '公式'} {fmt(targets.tdee, 0)} kcal
         </p>
@@ -105,7 +105,7 @@ export function AdaptiveTdeeCard({ settings, targets, today }: { settings: Setti
           </Button>
         </div>
       )}
-      <p className="text-cap text-chalk-4">只是建議，不會自動改你的目標。記錄不完整的日子請在飲食頁標「不完整」，避免低估。</p>
+      <p className="text-cap text-chalk-3">只是建議，不會自動改你的目標。記錄不完整的日子請在飲食頁標「不完整」，避免低估。</p>
     </section>
   );
 }

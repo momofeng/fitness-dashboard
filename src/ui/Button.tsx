@@ -33,7 +33,8 @@ export function Button({ variant = 'secondary', size = 'md', icon, iconRight, bl
   return (
     <button
       type={type}
-      className={`press inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap select-none disabled:cursor-not-allowed ${VARIANT[variant]} ${SIZE[size]} ${block ? 'w-full' : ''} ${className}`}
+      // block：在 flex 列裡要能縮（兩顆 block 並排時各占一半），不然 w-full＋shrink-0 會把第二顆擠出畫面
+      className={`press inline-flex items-center justify-center font-medium whitespace-nowrap select-none disabled:cursor-not-allowed ${VARIANT[variant]} ${SIZE[size]} ${block ? 'w-full min-w-0' : 'shrink-0'} ${className}`}
       {...rest}
     >
       {icon && <Icon name={icon} size={iconSize} />}

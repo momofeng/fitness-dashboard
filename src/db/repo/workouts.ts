@@ -20,16 +20,24 @@ import { getSettings } from './settings';
 
 type Lookup = (id: string) => AnyExercise | undefined;
 
-/** 某動作最近一場（不含 excludeWorkoutId）的組數 */
-export async function lastSessionSets(exerciseId: string, excludeWorkoutId?: string): Promise<WorkoutSet[]> {
+/**
+ * 某動作最近一場（不含 excludeWorkoutId）的組數。
+ * skipDeload：略過減量週的場次——拿來當下次目標時要用，否則每場減量都會再打一次折。
+ */
+export async function lastSessionSets(exerciseId: string, excludeWorkoutId?: string, opts: { skipDeload?: boolean } = {}): Promise<WorkoutSet[]> {
   const rows = await db.sets
     .where('[exerciseId+date]')
     .between([exerciseId, Dexie.minKey], [exerciseId, Dexie.maxKey])
     .reverse()
     .toArray();
-  const first = rows.find((r) => r.workoutId !== excludeWorkoutId);
-  if (!first) return [];
-  return rows.filter((r) => r.workoutId === first.workoutId).sort((a, b) => a.order - b.order);
+  const ids = [...new Set(rows.map((r) => r.workoutId))].filter((id) => id !== excludeWorkoutId);
+  let pick = ids[0];
+  if (opts.skipDeload && ids.length) {
+    const ws = await db.workouts.bulkGet(ids);
+    pick = ids.find((_, i) => !ws[i]?.deload);
+  }
+  if (!pick) return [];
+  return rows.filter((r) => r.workoutId === pick).sort((a, b) => a.order - b.order);
 }
 
 export async function exerciseHistory(exerciseId: string): Promise<WorkoutSet[]> {
@@ -43,7 +51,7 @@ export async function planItemFor(
   const [pref, state, last] = await Promise.all([
     db.exercisePrefs.get(slot.exerciseId),
     db.progressionState.get(slot.exerciseId),
-    lastSessionSets(slot.exerciseId),
+    lastSessionSets(slot.exerciseId, undefined, { skipDeload: true }),
   ]);
   const ex = get(slot.exerciseId);
   const lastWorking = last.filter((s) => s.kind === 'working');

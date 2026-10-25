@@ -33,7 +33,7 @@ export default function RecoveryPage() {
       <DeloadBanner settings={settings} today={today} />
       {state && !state.deloadActive && <AdviceCard advice={state.advice} today={today} showOk />}
 
-      <Section title={`今天（${shortDateLabel(today)}）`}>
+      <Section title={`今天 · ${shortDateLabel(today)}`}>
         <div className="card p-4">
           <RecoveryEntry date={today} />
         </div>
@@ -43,7 +43,7 @@ export default function RecoveryPage() {
         <div className="grid grid-cols-3 gap-2">
           <Stat label="平均睡眠" value={s?.sleepAvg != null ? `${fmt(s.sleepAvg, 1)} 時` : '–'} sub={s ? `${s.sleepDays} 天有記錄` : ''} />
           <Stat label="平均精力" value={s?.energyAvg != null ? `${fmt(s.energyAvg, 1)}／5` : '–'} sub={s ? `${s.energyDays} 天有記錄` : ''} />
-          <Stat label="最常痠" value={s?.sore[0] ? SORE_AREA_LABEL[s.sore[0].area as SoreArea] : '–'} sub={s?.sore[0] ? `${s.sore[0].days} 天` : ''} />
+          <Stat label="最常痠痛" value={s?.sore[0] ? SORE_AREA_LABEL[s.sore[0].area as SoreArea] : '–'} sub={s?.sore[0] ? `${s.sore[0].days} 天` : ''} />
         </div>
       </Section>
 
@@ -72,7 +72,7 @@ export default function RecoveryPage() {
           {rangeKeys(from, today).every((d) => !byDate.has(d)) && <p className="p-4 text-sm text-chalk-3">還沒有紀錄。每天花 5 秒記錄睡眠與精力，減量建議會更準。</p>}
         </div>
       </Section>
-      <p className="px-1 text-cap text-chalk-4">減量建議依「設定 → 恢復」的門檻判斷（目前：睡眠低於 {settings.recovery.lowSleepH} 小時、精力 {settings.recovery.lowEnergy} 以下）。不是醫療建議，身體不適請就醫。</p>
+      <p className="px-1 text-cap text-chalk-3">減量建議依「設定 → 恢復」的門檻判斷（目前：睡眠低於 {settings.recovery.lowSleepH} 小時、精力 {settings.recovery.lowEnergy} 以下）。不是醫療建議，身體不適請就醫。</p>
     </div>
   );
 }
@@ -82,7 +82,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
     <div className="card flex min-w-0 flex-col gap-0.5 p-3">
       <p className="label truncate">{label}</p>
       <p className="num truncate text-h4 font-semibold">{value}</p>
-      <p className="truncate text-cap text-chalk-4">{sub}</p>
+      <p className="truncate text-cap text-chalk-3">{sub}</p>
     </div>
   );
 }
@@ -94,11 +94,11 @@ function SleepChart({ days, byDate, lowSleepH }: { days: string[]; byDate: Map<s
   const y = (v: number) => (Math.min(v, SLEEP_MAX) / SLEEP_MAX) * h;
   const selLog = sel ? byDate.get(sel) : undefined;
   return (
-    <figure className="flex flex-col gap-2">
+    <figure className="flex flex-col gap-2 pt-5">
       <div className="relative" style={{ height: h }}>
         <div className="absolute inset-x-0 border-t border-dashed border-chalk-4" style={{ bottom: y(lowSleepH) }} aria-hidden="true" />
-        <span className="num absolute right-0 bg-iron px-1 text-cap text-chalk-3" style={{ bottom: y(lowSleepH) + 2 }} aria-hidden="true">
-          {fmt(lowSleepH, 1)} 時
+        <span className="num absolute -top-5 right-0 text-cap text-chalk-3" aria-hidden="true">
+          虛線＝{fmt(lowSleepH, 1)} 小時
         </span>
         <div className="absolute inset-0 grid items-end gap-[2px]" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
           {days.map((d) => {
@@ -122,7 +122,7 @@ function SleepChart({ days, byDate, lowSleepH }: { days: string[]; byDate: Map<s
           })}
         </div>
       </div>
-      <div className="grid gap-[2px] text-center text-cap text-chalk-4" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }} aria-hidden="true">
+      <div className="grid gap-[2px] text-center text-cap text-chalk-3" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }} aria-hidden="true">
         {days.map((d, i) => (
           <span key={d} className="truncate">
             {i % 2 === days.length % 2 ? weekdayLabel(d).slice(1) : ''}

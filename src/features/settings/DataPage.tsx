@@ -131,7 +131,7 @@ export default function DataPage() {
         >
           {zipping ? '打包中…' : '完整備份（ZIP，含進度照）'}
         </Button>
-        <p className="text-cap text-chalk-4">
+        <p className="text-cap text-chalk-3">
           JSON 檔小、適合每週備份；有拍進度照的話，換手機前請用 ZIP 完整備份。
           {s.backup.lastFullExportAt ? `上次完整備份：${new Date(s.backup.lastFullExportAt).toLocaleDateString('zh-TW')}。` : ''}
         </p>

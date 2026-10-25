@@ -3,7 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { heatLevel, monthGrid, type HeatMetric } from '../../core/goals';
-import { parseDateKey, shortDateLabel } from '../../core/dates';
+import { parseDateKey, shortDateLabel, toDateKey } from '../../core/dates';
 import { fmt } from '../../core/units';
 import { useHabits } from '../../db/repo/goals';
 import { db } from '../../db/db';
@@ -16,7 +16,7 @@ import { habitDoneDates, loadDayFacts } from './facts';
 const METRIC_LABEL: Record<HeatMetric, string> = { training: '訓練', protein: '蛋白質', habits: '習慣', sleep: '睡眠' };
 const LEGEND: Record<HeatMetric, [string, string, string, string]> = {
   training: ['1–9 組', '10–15', '16–20', '21+'],
-  protein: ['<50%', '50–80%', '80–95%', '≥95%'],
+  protein: ['<50%', '50–80%', '80–90%', '≥90%'],
   habits: ['≤⅓', '≤⅔', '大部分', '全部'],
   sleep: ['<5 時', '5–6', '6–7', '≥7'],
 };
@@ -43,8 +43,11 @@ export default function CalendarPage() {
   const activeHabits = habits.filter((h) => !h.archived);
   const habitTargets = { proteinG: targets?.protein ?? null, waterMl: settings.nutrition.waterTargetMl };
   const habitDone = new Map<string, number>();
+  const habitStart = new Map(activeHabits.map((h) => [h.id, toDateKey(h.createdAt, settings.dayCutoffHour)]));
+  const habitsOn = (d: string) => activeHabits.filter((h) => habitStart.get(h.id)! <= d).length;
   if (data) {
-    for (const h of activeHabits) for (const d of habitDoneDates(h, data.facts, data.manual, habitTargets)) habitDone.set(d, (habitDone.get(d) ?? 0) + 1);
+    for (const h of activeHabits)
+      for (const d of habitDoneDates(h, data.facts, data.manual, habitTargets)) if (habitStart.get(h.id)! <= d) habitDone.set(d, (habitDone.get(d) ?? 0) + 1);
   }
 
   const valueOf = (d: string): number | null => {
@@ -56,7 +59,7 @@ export default function CalendarPage() {
       case 'protein':
         return targets?.protein ? f.proteinG / targets.protein : null;
       case 'habits':
-        return activeHabits.length ? (habitDone.get(d) ?? 0) / activeHabits.length : null;
+        return habitsOn(d) ? (habitDone.get(d) ?? 0) / habitsOn(d) : null;
       case 'sleep':
         return f.sleepH;
     }
@@ -70,7 +73,7 @@ export default function CalendarPage() {
       case 'protein':
         return f.foodLogged ? `蛋白質 ${fmt(f.proteinG, 0)} g${targets ? ` / ${targets.protein} g` : ''}` : '沒有飲食紀錄';
       case 'habits':
-        return activeHabits.length ? `習慣 ${habitDone.get(d) ?? 0}/${activeHabits.length}` : '還沒有設定習慣';
+        return habitsOn(d) ? `習慣 ${habitDone.get(d) ?? 0}/${habitsOn(d)}` : '這天還沒有設定習慣';
       case 'sleep':
         return f.sleepH != null ? `睡眠 ${fmt(f.sleepH, 2)} 小時` : '沒有睡眠紀錄';
     }
@@ -99,7 +102,7 @@ export default function CalendarPage() {
         <div role="grid" aria-label={`${ym.y} 年 ${ym.m} 月 ${METRIC_LABEL[metric]}`} className="flex flex-col gap-[2px]">
           <div role="row" className="grid grid-cols-7 gap-[2px]">
             {headers.map((h) => (
-              <span key={h} role="columnheader" className="text-center text-cap text-chalk-4">
+              <span key={h} role="columnheader" className="text-center text-cap text-chalk-3">
                 {h}
               </span>
             ))}
@@ -147,9 +150,9 @@ export default function CalendarPage() {
             <p className="text-chalk-2">{selFacts?.workout || selFacts?.workingSets ? `訓練 ${selFacts.workingSets} 組` : '沒有訓練'}</p>
             <p className="text-chalk-2">{selFacts?.foodLogged ? `蛋白質 ${fmt(selFacts.proteinG, 0)} g` : '沒有飲食紀錄'}</p>
             <p className="text-chalk-2">{selFacts?.sleepH != null ? `睡眠 ${fmt(selFacts.sleepH, 2)} 小時` : '沒有睡眠紀錄'}</p>
-            {activeHabits.length > 0 && (
+            {habitsOn(sel) > 0 && (
               <p className="text-chalk-2">
-                習慣 {habitDone.get(sel) ?? 0}/{activeHabits.length}
+                習慣 {habitDone.get(sel) ?? 0}/{habitsOn(sel)}
               </p>
             )}
           </div>

@@ -152,7 +152,7 @@ function Warmup({ settings }: { settings: Settings }) {
           </li>
         )}
       </ol>
-      <p className="text-cap text-chalk-4">組間休息 30–60 秒即可，目的是熱身與練習動作，不要做到累。比例可在「設定 → 訓練 → 暖身組」調整。</p>
+      <p className="text-cap text-chalk-3">組間休息 30–60 秒即可，目的是暖身與練習動作，不要做到累。比例可在「設定 → 訓練 → 暖身組」調整。</p>
     </div>
   );
 }
@@ -216,7 +216,7 @@ function TdeeTool() {
           </div>
         </div>
       )}
-      <p className="text-cap text-chalk-4">Mifflin-St Jeor 公式；增肌目標以每週增加體重 0.3% 估算。這裡只是試算，不會改到你的設定。</p>
+      <p className="text-cap text-chalk-3">Mifflin-St Jeor 公式；增肌目標以每週增加體重 0.3% 估算。這裡只是試算，不會改到你的設定。</p>
     </div>
   );
 }

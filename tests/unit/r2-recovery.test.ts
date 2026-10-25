@@ -6,9 +6,9 @@ import { db } from '../../src/db/db';
 import { defaultSettings } from '../../src/db/defaults';
 import { upsertBodyMetric } from '../../src/db/repo/body';
 import { activateTemplate } from '../../src/db/repo/programs';
-import { endDeloadWeek, isDeloadActive, setDailyRecovery, startDeloadWeek } from '../../src/db/repo/recovery';
-import { addExerciseToWorkout, finishWorkout, logSet, startWorkout } from '../../src/db/repo/workouts';
-import { todayKey } from '../../src/core/dates';
+import { endDeloadWeek, isDeloadActive, recentlyDeloaded, setDailyRecovery, startDeloadWeek } from '../../src/db/repo/recovery';
+import { addExerciseToWorkout, finishWorkout, logSet, startWorkout, updatePlanItem } from '../../src/db/repo/workouts';
+import { addDays, todayKey } from '../../src/core/dates';
 
 const P = { lowSleepH: 6, lowEnergy: 2 };
 const sum = (p: Partial<RecoverySummary>): RecoverySummary => ({ loggedDays: 7, sleepAvg: 7.5, sleepDays: 7, energyAvg: 3.5, energyDays: 7, sore: [], ...p });
@@ -86,8 +86,35 @@ describe('減量週', () => {
     const until = (await db.settings.get('app'))!.recovery.deloadUntil!;
     expect(isDeloadActive(until, today)).toBe(true);
     expect(isDeloadActive(until, '2999-01-01')).toBe(false);
-    await endDeloadWeek();
-    expect((await db.settings.get('app'))!.recovery.deloadUntil).toBeNull();
+    const prev = await endDeloadWeek(today);
+    expect(prev).toBe(until);
+    const after = (await db.settings.get('app'))!.recovery.deloadUntil;
+    // 提前結束：結束日改成昨天，不再進行中，但 14 天內算「剛做過減量週」
+    expect(after).toBe(addDays(today, -1));
+    expect(isDeloadActive(after, today)).toBe(false);
+    expect(recentlyDeloaded(after, today)).toBe(true);
+    expect(recentlyDeloaded(after, addDays(today, 15))).toBe(false);
+  });
+
+  it('沒有進步狀態的動作：減量週連續幾場不會一直打折，結束後回到原本重量', async () => {
+    const w0 = await startWorkout({});
+    await addExerciseToWorkout(w0, 'leg-press', 90);
+    await updatePlanItem(w0, 0, { progression: 'none' });
+    for (let i = 0; i < 3; i++) await logSet(w0, { exerciseId: 'leg-press', kind: 'working', weightKg: 100, reps: 10, rir: null }, 0);
+    await finishWorkout(w0);
+    await startDeloadWeek(todayKey(4));
+    for (let k = 0; k < 3; k++) {
+      const w = await startWorkout({});
+      await addExerciseToWorkout(w, 'leg-press', 90);
+      const item = (await db.workouts.get(w))!.plan[0]!;
+      expect(item.targetWeightKg).toBe(90);
+      for (let i = 0; i < item.sets; i++) await logSet(w, { exerciseId: 'leg-press', kind: 'working', weightKg: item.targetWeightKg!, reps: 10, rir: null }, 0);
+      await finishWorkout(w);
+    }
+    await endDeloadWeek(todayKey(4));
+    const after = await startWorkout({});
+    await addExerciseToWorkout(after, 'leg-press', 90);
+    expect((await db.workouts.get(after))!.plan[0]!.targetWeightKg).toBe(100);
   });
 
   it('減量週開的訓練：組數與重量下降，完成後進步狀態不變', async () => {

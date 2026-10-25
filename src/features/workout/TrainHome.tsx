@@ -7,7 +7,8 @@ import { db } from '../../db/db';
 import { loadExerciseLookup, useExerciseLookup } from '../../db/repo/exercises';
 import { useActiveProgram } from '../../db/repo/programs';
 import { useSettings } from '../../db/repo/settings';
-import { planItemFor, startWorkout, useActiveWorkout, useDoneWorkouts } from '../../db/repo/workouts';
+import { isDeloadActive } from '../../db/repo/recovery';
+import { deloadPlanItem, planItemFor, startWorkout, useActiveWorkout, useDoneWorkouts } from '../../db/repo/workouts';
 import { unlockAudio } from '../../lib/platform';
 import { Button } from '../../ui/Button';
 import { Icon, type IconName } from '../../ui/Icon';
@@ -33,10 +34,12 @@ export default function TrainHome() {
   const day = program?.days[dayIndex];
 
   const preview = useLiveQuery(async () => {
-    if (!day) return [];
+    if (!day || !settings) return [];
     const lookup = await loadExerciseLookup();
-    return Promise.all(day.slots.map((s) => planItemFor(s, lookup)));
-  }, [program?.id, program?.updatedAt, dayIndex]);
+    const items = await Promise.all(day.slots.map((s) => planItemFor(s, lookup)));
+    // 減量週：預覽也顯示減量後的組數與重量
+    return isDeloadActive(settings.recovery.deloadUntil, today) ? items.map((p) => deloadPlanItem(p, lookup(p.exerciseId), settings)) : items;
+  }, [program?.id, program?.updatedAt, dayIndex, settings?.updatedAt, today]);
 
   const week = useLiveQuery(() => (settings ? weekVolume(today, settings.weekStart) : undefined), [today, settings?.weekStart]);
   const recovery = useRecoveryAdvice(settings, program, today);
@@ -101,7 +104,7 @@ export default function TrainHome() {
           <ol className="flex flex-col divide-y divide-seam">
             {(preview ?? []).map((p, i) => (
               <li key={`${p.exerciseId}-${i}`} className="flex items-center gap-3 py-2">
-                <span className="num w-5 shrink-0 text-sm text-chalk-4">{i + 1}</span>
+                <span className="num w-5 shrink-0 text-sm text-chalk-3">{i + 1}</span>
                 <span className="min-w-0 flex-1 truncate">{get(p.exerciseId)?.nameZh ?? p.exerciseId}</span>
                 <span className="num shrink-0 text-sm text-chalk-2">
                   {p.sets}×{p.repMin === p.repMax ? p.repMax : `${p.repMin}–${p.repMax}`}
@@ -136,7 +139,7 @@ export default function TrainHome() {
         />
       )}
 
-      {stalls && stalls.length > 0 && (
+      {stalls && stalls.length > 0 && !recovery?.deloadActive && (
         <Section title="停滯提醒" action={<Link to="/recovery" className="text-sm text-chalk-3 hover:text-chalk">恢復紀錄</Link>}>
           <div className="card flex flex-col gap-2 p-4">
             {stalls.map((s) => (

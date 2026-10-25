@@ -68,12 +68,12 @@ export default function WorkoutDetail() {
               <div key={exId} className="card p-4">
                 <Link to={`/train/exercise/${exId}`} className="flex items-center justify-between gap-2">
                   <h3 className="truncate text-h4 font-semibold">{get(exId)?.nameZh ?? exId}</h3>
-                  <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-4" />
+                  <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-3" />
                 </Link>
                 <ol className="mt-2 flex flex-col gap-1">
                   {list.map((s, i) => (
                     <li key={s.id} className="num flex items-center gap-3 text-base">
-                      <span className={`w-8 text-sm ${s.kind === 'working' ? 'text-chalk-3' : 'text-chalk-4'}`}>
+                      <span className={`w-8 text-sm ${s.kind === 'working' ? 'text-chalk-3' : 'text-chalk-3'}`}>
                         {s.kind === 'warmup' ? '暖' : s.kind === 'drop' ? '遞減' : list.filter((x, j) => x.kind === 'working' && j <= i).length}
                       </span>
                       <span className={s.kind === 'working' ? '' : 'text-chalk-3'}>
@@ -103,7 +103,7 @@ export default function WorkoutDetail() {
       >
         刪除這場訓練
       </Button>
-      <p className="px-1 text-cap text-chalk-4">刪除不會改回已經計算過的下次重量。</p>
+      <p className="px-1 text-cap text-chalk-3">刪除不會改回已經計算過的下次重量。</p>
     </div>
   );
 }

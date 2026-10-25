@@ -65,7 +65,7 @@ export default function SupplementsPage() {
             role="radio"
             aria-checked={grade === g}
             onClick={() => setGrade(g)}
-            className={`press h-8 shrink-0 rounded-full border px-3 text-sm ${grade === g ? 'border-chalk bg-chalk font-medium text-on-chalk' : 'border-seam text-chalk-2'}`}
+            className={`press h-10 shrink-0 rounded-full border px-4 text-sm ${grade === g ? 'border-chalk bg-chalk font-medium text-on-chalk' : 'border-seam text-chalk-2'}`}
           >
             {g ? `${g} 級` : '全部'}
           </button>
@@ -79,11 +79,11 @@ export default function SupplementsPage() {
               <span className="block font-medium">{c.name}</span>
               <span className="block text-sm text-chalk-3">{c.oneLiner}</span>
             </span>
-            <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-4" />
+            <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-3" />
           </Link>
         ))}
       </div>
-      <p className="px-1 text-cap text-chalk-4">{SUPPLEMENT_DISCLAIMER}</p>
+      <p className="px-1 text-cap text-chalk-3">{SUPPLEMENT_DISCLAIMER}</p>
     </div>
   );
 }
@@ -94,8 +94,8 @@ function SourceList({ ids }: { ids: SourceId[] }) {
       {ids.map((id) => {
         const s = SOURCES[id];
         return (
-          <li key={id} className="text-cap text-chalk-3">
-            <a href={s.url} target="_blank" rel="noopener noreferrer" className="underline decoration-chalk-4 underline-offset-2 hover:text-chalk-2">
+          <li key={id} className="text-sm text-chalk-3">
+            <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center text-sm underline decoration-chalk-4 underline-offset-2 hover:text-chalk-2">
               {s.label}
             </a>
             {'pmid' in s && s.pmid ? ` · PMID ${s.pmid}` : ''}
@@ -134,12 +134,19 @@ export function SupplementDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const c = SUPPLEMENT_CARDS.find((x) => x.id === id);
-  if (!c) return <EmptyState icon="info" title="找不到這張卡片" action={<Link to="/supplements">回到知識卡</Link>} />;
+  if (!c)
+    return (
+      <div className="flex flex-col gap-4 pb-6">
+        <PageHeader title="找不到這張卡片" back="/supplements" />
+        <EmptyState icon="info" title="找不到這張卡片" action={<Button onClick={() => navigate('/supplements')}>回到知識卡</Button>} />
+      </div>
+    );
   const allSources = [...new Set([...c.claims, ...c.dose, ...c.safety].flatMap((x) => x.sources))];
   return (
     <div className="flex flex-col gap-5 pb-6">
-      <PageHeader title={c.name} back="/supplements" sub={c.aka.join('、')} />
+      <PageHeader title={c.name} back="/supplements" />
       <div className="flex flex-col gap-2">
+        <p className="text-sm text-chalk-3">也叫：{c.aka.join('、')}</p>
         <GradeBadge grade={c.grade} withLabel />
         <p className="text-h4 font-semibold">{c.oneLiner}</p>
         <p className="text-base text-chalk-2">{c.whatItIs}</p>
@@ -182,7 +189,7 @@ export function SupplementDetail() {
           <SourceList ids={allSources} />
         </div>
       </Section>
-      <p className="px-1 text-cap text-chalk-4">{SUPPLEMENT_DISCLAIMER}</p>
+      <p className="px-1 text-cap text-chalk-3">{SUPPLEMENT_DISCLAIMER}</p>
     </div>
   );
 }

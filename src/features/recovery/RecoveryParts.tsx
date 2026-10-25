@@ -6,7 +6,7 @@ import { shortDateLabel } from '../../core/dates';
 import type { DeloadAdvice } from '../../core/recovery';
 import { inRange, LIMITS } from '../../db/limits';
 import { useDailyLog } from '../../db/repo/foods';
-import { endDeloadWeek, isDeloadActive, setDailyRecovery, startDeloadWeek } from '../../db/repo/recovery';
+import { endDeloadWeek, isDeloadActive, restoreDeloadUntil, setDailyRecovery, startDeloadWeek } from '../../db/repo/recovery';
 import type { Settings } from '../../db/schemas';
 import { Button } from '../../ui/Button';
 import { Field, NumberInput } from '../../ui/Fields';
@@ -42,8 +42,9 @@ export function RecoveryEntry({ date, compact = false }: { date: string; compact
             stepper
             suffix="時"
             placeholder="例如 7"
-            onChange={(v) => {
-              setSleep(v);
+            onChange={setSleep}
+            onCommit={(v) => {
+              // 離開欄位或按 −／＋ 才存，而且只存合法值（逐字輸入時中間值不會被寫進去）
               if (v == null) void save({ sleepHours: null });
               else if (inRange('sleepH', v)) void save({ sleepHours: v });
             }}
@@ -65,7 +66,7 @@ export function RecoveryEntry({ date, compact = false }: { date: string; compact
                   className={`press flex h-11 flex-col items-center justify-center rounded-md border text-sm font-semibold ${on ? 'border-chalk bg-chalk text-on-chalk' : 'border-seam bg-iron-2 text-chalk-2'}`}
                 >
                   <span className="num leading-none">{n}</span>
-                  {!compact && <span className={`text-cap font-normal leading-none ${on ? '' : 'text-chalk-4'}`}>{ENERGY_LABEL[n]}</span>}
+                  <span className={`text-cap font-normal leading-none ${on ? '' : 'text-chalk-3'}`}>{ENERGY_LABEL[n]}</span>
                 </button>
               );
             })}
@@ -75,7 +76,7 @@ export function RecoveryEntry({ date, compact = false }: { date: string; compact
       <div>
         <button type="button" onClick={() => setSoreOpen((v) => !v)} aria-expanded={soreOpen} className="press flex h-9 items-center gap-1 text-sm text-chalk-3 hover:text-chalk-2">
           <Icon name={soreOpen ? 'chevronDown' : 'chevronRight'} size={16} />
-          痠痛部位（選填）{sore.length > 0 && `：${sore.map((a) => SORE_AREA_LABEL[a]).join('、')}`}
+          痠痛部位（選填）{sore.length > 0 && `：${[...sore].sort((a, b) => SORE_AREAS.indexOf(a) - SORE_AREAS.indexOf(b)).map((a) => SORE_AREA_LABEL[a]).join('、')}`}
         </button>
         {soreOpen && (
           <div className="flex flex-wrap gap-1.5 pt-1" role="group" aria-label="痠痛部位">
@@ -103,15 +104,25 @@ export function RecoveryEntry({ date, compact = false }: { date: string; compact
 /** 減量週進行中的橫幅 */
 export function DeloadBanner({ settings, today }: { settings: Settings; today: string }) {
   const until = settings.recovery.deloadUntil;
+  const [confirm, setConfirm] = useState(false);
   if (!until || !isDeloadActive(until, today)) return null;
   return (
     <div className="flex items-center gap-3 rounded-lg border border-seam-strong bg-go-soft p-3" role="status">
       <Icon name="info" className="shrink-0 text-go" />
       <p className="min-w-0 flex-1 text-sm text-chalk">
-        減量週進行中（到 {shortDateLabel(until)}）：新開的訓練組數約 {settings.recovery.deloadSetsPct}%、重量約 {settings.recovery.deloadWeightPct}%，不會改變進步紀錄。
+        減量週進行中，到 {shortDateLabel(until)} 為止：新開的訓練組數約 {settings.recovery.deloadSetsPct}%、重量約 {settings.recovery.deloadWeightPct}%，不會改變進步紀錄。
       </p>
-      <Button size="sm" onClick={() => void endDeloadWeek().then(() => toast('已結束減量週'))}>
-        提前結束
+      <Button
+        size="sm"
+        variant={confirm ? 'danger' : 'secondary'}
+        onClick={async () => {
+          if (!confirm) return setConfirm(true);
+          const prev = await endDeloadWeek(today);
+          setConfirm(false);
+          toast('已提前結束減量週', { actionLabel: '復原', onAction: () => void restoreDeloadUntil(prev) });
+        }}
+      >
+        {confirm ? '確定結束' : '提前結束'}
       </Button>
     </div>
   );

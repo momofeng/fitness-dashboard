@@ -69,7 +69,7 @@ export function TodayChecklist({ today, proteinTarget, waterTarget }: { today: s
                   <Icon name="check" size={16} strokeWidth={2.4} />
                 </span>
                 <span className="min-w-0 flex-1 truncate">{h.name}</span>
-                {!manual && <span className="shrink-0 text-cap text-chalk-4">自動</span>}
+                {!manual && <span className="shrink-0 text-cap text-chalk-3">自動</span>}
               </button>
             </li>
           );

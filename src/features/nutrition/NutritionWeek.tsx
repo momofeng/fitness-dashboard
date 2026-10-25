@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { addDays, rangeKeys, shortDateLabel } from '../../core/dates';
+import { PROTEIN_HIT_RATIO } from '../../core/goals';
 import { sumNutrients } from '../../core/nutrition';
 import { fmt } from '../../core/units';
 import { db } from '../../db/db';
@@ -22,7 +23,7 @@ export default function NutritionWeek() {
   const logged = days.filter((d) => d.n > 0);
   const avg = logged.length ? sumNutrients(logged.map((d) => d.total)) : null;
   const div = Math.max(1, logged.length);
-  const proteinHits = targets ? logged.filter((d) => d.total.protein >= targets.protein * 0.9).length : 0;
+  const proteinHits = targets ? logged.filter((d) => d.total.protein >= targets.protein * PROTEIN_HIT_RATIO).length : 0;
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -61,7 +62,7 @@ export default function NutritionWeek() {
                       <span className="text-chalk-3"> kcal · 蛋白質 {fmt(d.total.protein, 0)} g</span>
                     </>
                   ) : (
-                    <span className="text-chalk-4">未記錄</span>
+                    <span className="text-chalk-3">未記錄</span>
                   )}
                 </span>
               </div>
@@ -82,7 +83,7 @@ function Tile({ label, value, unit, sub }: { label: string; value: string; unit?
         {value}
         {unit && <span className="ml-0.5 text-sm font-normal text-chalk-3">{unit}</span>}
       </span>
-      {sub && <span className="num text-cap text-chalk-4">{sub}</span>}
+      {sub && <span className="num text-cap text-chalk-3">{sub}</span>}
     </div>
   );
 }

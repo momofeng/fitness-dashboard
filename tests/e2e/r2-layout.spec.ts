@@ -1,6 +1,7 @@
 // Round 2 新頁面：375px 沒有水平捲動；離線時（service worker 預先快取）每頁都能開。
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, onboard } from './helpers';
+import { readFileSync } from 'node:fs';
+import { expectDialogButtonsInView, expectNoHorizontalOverflow, onboard } from './helpers';
 
 const ROUTES: Array<[string, string]> = [
   ['#/recovery', '恢復'],
@@ -55,4 +56,27 @@ test('離線：Round 2 每個新頁面都能開，並能記錄恢復與打卡', 
   await page.getByRole('button', { name: '今天完成：伸展' }).click();
   await expect(page.getByRole('button', { name: '今天完成：伸展' })).toHaveAttribute('aria-pressed', 'true');
   await context.setOffline(false);
+});
+
+test('375px：確認視窗的按鈕都在畫面內（還原、清除、放棄訓練、套用範本）', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await onboard(page);
+  await page.goto('./#/settings/data');
+  await page.getByLabel('選擇備份檔').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: readFileSync('tests/fixtures/backup-v2.json') });
+  await expect(page.getByRole('button', { name: '取代並還原' })).toBeVisible();
+  await expectDialogButtonsInView(page, '還原備份');
+  await page.getByRole('button', { name: '取消' }).click();
+  await page.getByRole('button', { name: '清除所有資料' }).click();
+  await expectDialogButtonsInView(page, '清除所有資料');
+  await page.getByRole('button', { name: '取消' }).click();
+
+  await page.goto('./#/train/program');
+  await page.getByRole('button', { name: '套用這份範本' }).first().click();
+  await expectDialogButtonsInView(page, '套用範本');
+  await page.keyboard.press('Escape');
+
+  await page.goto('./#/train');
+  await page.getByRole('button', { name: '開始訓練' }).click();
+  await page.getByRole('button', { name: '放棄這場訓練' }).click();
+  await expectDialogButtonsInView(page, '放棄訓練');
 });

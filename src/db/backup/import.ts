@@ -4,6 +4,7 @@ import { SCHEMA_VERSION } from '../db';
 import { BACKUP_APP_ID, MAX_BACKUP_BYTES, type BackupFile } from './backup';
 import { migrateTables, type RawTables } from './migrate';
 import { BACKUP_SPECS, BACKUP_TABLES, type BackupTable } from './tables';
+import { issueMessage } from './messages';
 import { BACKUP_SCHEMAS } from './validate';
 
 export interface ImportIssue {
@@ -18,6 +19,7 @@ export type ParseResult =
   | { ok: false; errors: string[]; issues: ImportIssue[] };
 
 const MAX_ISSUES = 20;
+
 
 export interface ParseOptions {
   /** ZIP 裡有原圖的照片 id；JSON 匯入時不給 */
@@ -69,7 +71,7 @@ export function parseBackup(text: string, byteLength = new Blob([text]).size, op
       if (!r.success) {
         for (const iss of r.error.issues) {
           if (issues.length < MAX_ISSUES) {
-            issues.push({ table: t, index, path: iss.path.join('.') || '(整筆)', message: iss.message });
+            issues.push({ table: t, index, path: iss.path.join('.') || '(整筆)', message: issueMessage(iss as Parameters<typeof issueMessage>[0]) });
           }
         }
         return;

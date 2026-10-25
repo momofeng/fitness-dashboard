@@ -9,7 +9,8 @@ import type { Cardio } from '../../db/schemas';
 import { Button, IconButton } from '../../ui/Button';
 import { Field, NumberInput, TextField } from '../../ui/Fields';
 import { EmptyState, PageHeader, Section } from '../../ui/Layout';
-import { toastUndo } from '../../ui/toast';
+import { isValidDay } from '../../db/limits';
+import { toast, toastUndo } from '../../ui/toast';
 import { useToday } from '../shared/useToday';
 
 export default function CardioPage() {
@@ -25,6 +26,7 @@ export default function CardioPage() {
 
   async function add() {
     if (!minutes) return;
+    if (date != null && (!isValidDay(date) || date > today)) return toast('日期格式不正確', { tone: 'error' });
     const row: Cardio = { id: newId(), date: date ?? today, type, minutes, distanceKm: km, kcal, note: note.trim(), updatedAt: Date.now() };
     await db.cardio.put(row);
     setKm(null);
@@ -66,14 +68,14 @@ export default function CardioPage() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="日期">
-            <input type="date" className="field" value={date ?? today} max={today} onChange={(e) => setDate(e.target.value || null)} />
+            <input type="date" className="field" value={date ?? today} max={today} aria-invalid={(date != null && (!isValidDay(date) || date > today)) || undefined} onChange={(e) => setDate(e.target.value || null)} />
           </Field>
           <TextField label="備註" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
         </div>
         <Button variant="primary" block disabled={!minutes} onClick={() => void add()}>
           記錄
         </Button>
-        <p className="text-cap text-chalk-4">增肌期的有氧以輔助心肺為主；活動量的熱量已包含在目標 TDEE 內，記錄消耗不會自動加到飲食目標。</p>
+        <p className="text-cap text-chalk-3">增肌期的有氧以輔助心肺為主；活動量的熱量已包含在目標 TDEE 內，記錄消耗不會自動加到飲食目標。</p>
       </div>
 
       <Section title="紀錄">

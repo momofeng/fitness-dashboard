@@ -110,3 +110,26 @@ export function doneWorkout(id: string, date: string, exerciseId: string, weight
     })),
   };
 }
+
+/**
+ * 開著的對話框裡，每顆按鈕都要完整在畫面內。
+ * expectNoHorizontalOverflow 會略過被祖先 overflow 裁掉的元素，抓不到「確認鈕被擠到對話框右側」；
+ * Playwright 點擊前又會自動捲動，所以 e2e 點得到、人卻按不到。
+ */
+export async function expectDialogButtonsInView(page: Page, label: string) {
+  const out = await page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const bad: string[] = [];
+    for (const d of Array.from(document.querySelectorAll('dialog[open]'))) {
+      for (const b of Array.from(d.querySelectorAll('button'))) {
+        const r = b.getBoundingClientRect();
+        if (r.width === 0) continue;
+        if (r.left < -1 || r.right > vw + 1) bad.push(`${(b.textContent ?? '').trim() || b.getAttribute('aria-label')} [${Math.round(r.left)}–${Math.round(r.right)}]`);
+      }
+      const scroller = d.querySelector('div');
+      if (scroller && scroller.scrollWidth > scroller.clientWidth + 1) bad.push(`對話框可以橫向捲動（${scroller.scrollWidth} > ${scroller.clientWidth}）`);
+    }
+    return { vw, bad };
+  });
+  expect(out.bad, `${label}：對話框按鈕超出畫面（寬 ${out.vw}）`).toEqual([]);
+}

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { applyBackup, backupFileName, exportBackup, type ImportMode } from '../../db/backup/backup';
 import type { ParseResult } from '../../db/backup/import';
+import { fieldLabel } from '../../db/backup/messages';
 import { BACKUP_SPECS, BACKUP_TABLES } from '../../db/backup/tables';
 import { db } from '../../db/db';
 import { download } from '../../lib/platform';
@@ -144,7 +145,7 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
               <ul className="flex flex-col gap-1 rounded-md bg-well p-3 text-sm text-chalk-3">
                 {parsed.issues.map((i, k) => (
                   <li key={k}>
-                    {BACKUP_SPECS[i.table as keyof typeof BACKUP_SPECS]?.label ?? i.table} 第 {i.index + 1} 筆，{i.path}：{i.message}
+                    {BACKUP_SPECS[i.table as keyof typeof BACKUP_SPECS]?.label ?? i.table} 第 {i.index + 1} 筆，{fieldLabel(i.path)}：{i.message}
                   </li>
                 ))}
               </ul>

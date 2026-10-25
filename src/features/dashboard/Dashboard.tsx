@@ -178,7 +178,7 @@ export default function Dashboard() {
               </Button>
             </>
           )}
-          {lowMuscles.length > 0 && !active && (
+          {lowMuscles.length > 0 && !active && !recovery?.deloadActive && (
             <p className="text-sm text-chalk-3">
               本週組數偏少：{lowMuscles.map((m) => MUSCLE_LABEL[m]).join('、')}
             </p>
@@ -275,7 +275,7 @@ export default function Dashboard() {
         <TodayChecklist today={today} proteinTarget={targets?.protein ?? null} waterTarget={settings.nutrition.waterTargetMl} />
       </div>
 
-      <p className="pt-2 text-center text-cap text-chalk-4">數字皆為估算，不是醫療建議。{backupDays != null && !backupDue ? ` 上次備份 ${backupDays === 0 ? '今天' : `${backupDays} 天前`}。` : ''}</p>
+      <p className="pt-2 text-center text-cap text-chalk-3">數字皆為估算，不是醫療建議。{backupDays != null && !backupDue ? ` 上次備份 ${backupDays === 0 ? '今天' : `${backupDays} 天前`}。` : ''}</p>
     </div>
   );
 }

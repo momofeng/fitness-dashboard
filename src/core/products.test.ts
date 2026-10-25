@@ -27,6 +27,8 @@ describe('庫存', () => {
     expect(needsRestock({ ...whey, status: 'finished' }, 56)).toBe(false);
     expect(needsRestock({ ...whey, remindDays: 0 }, 56)).toBe(false);
     expect(needsRestock({ ...whey, dailyServings: null }, 56)).toBe(false);
+    // 沒填每罐份數：無法估庫存，不提醒
+    expect(needsRestock({ ...whey, servingsPerContainer: null }, 0)).toBe(false);
   });
 });
 

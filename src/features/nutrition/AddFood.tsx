@@ -5,6 +5,7 @@ import { searchItems } from '../../core/search';
 import { fmt } from '../../core/units';
 import { db } from '../../db/db';
 import { addFoodLog, computeEntry, customToItem, findFoodByBarcode, logMealTemplate, type FoodItem } from '../../db/repo/foods';
+import { isValidDay } from '../../db/limits';
 import { MEAL_LABEL, MEALS, type Meal, type MealTemplate } from '../../db/schemas';
 import { Button } from '../../ui/Button';
 import { Field, NumberInput, Segmented } from '../../ui/Fields';
@@ -22,7 +23,8 @@ export default function AddFood() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { today } = useTargets();
-  const date = params.get('date') ?? today;
+  const rawDate = params.get('date');
+  const date = isValidDay(rawDate) ? rawDate : today;
   const [meal, setMeal] = useState<Meal>((params.get('meal') as Meal) || guessMeal());
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState<FoodItem | null>(null);
@@ -83,7 +85,7 @@ export default function AddFood() {
         ))}
       </div>
       <div className="relative">
-        <Icon name="search" size={18} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-chalk-4" />
+        <Icon name="search" size={18} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-chalk-3" />
         <input
           ref={inputRef}
           type="search"
@@ -179,7 +181,7 @@ export default function AddFood() {
         </div>
       )}
 
-      {tfda && <p className="px-1 text-cap text-chalk-4">原型食物資料：衛生福利部食品藥物管理署「食品營養成分資料庫」（{tfda.version}），政府資料開放授權條款第 1 版。</p>}
+      {tfda && <p className="px-1 text-cap text-chalk-3">原型食物資料：衛生福利部食品藥物管理署「食品營養成分資料庫」（{tfda.version}），政府資料開放授權條款第 1 版。</p>}
 
       {picked && (
         <AmountSheet
@@ -258,7 +260,7 @@ function FoodRow({ item, hint, onClick }: { item: FoodItem; hint?: string; onCli
       <span className="min-w-0 flex-1">
         <span className="block truncate">
           {item.name}
-          {item.source === 'custom' && <span className="ml-1.5 text-cap text-chalk-4">自建</span>}
+          {item.source === 'custom' && <span className="ml-1.5 text-cap text-chalk-3">自建</span>}
         </span>
         <span className="block truncate text-sm text-chalk-3">{hint ?? item.sub}</span>
       </span>

@@ -2,7 +2,7 @@
 
 import type { Equipment } from '../../content/types';
 import type { PlateStock } from '../../core/training/strength';
-import { kgToLb, lbToKg, roundTo, type WeightUnit } from '../../core/units';
+import { kgToLb, lbToKg, type WeightUnit } from '../../core/units';
 import { barKgFor, smallestPlateKg, smallestPlateLb } from '../../db/defaults';
 import type { Settings } from '../../db/schemas';
 
@@ -24,7 +24,7 @@ export function plateSetup(s: Settings, equipment: Equipment = 'barbell'): Plate
   if (s.units.weight === 'lb') {
     return {
       unit: 'lb',
-      bar: equipment === 'ezbar' ? roundTo(kgToLb(s.equipment.ezBarKg), 0.5) : s.equipment.barLb,
+      bar: equipment === 'ezbar' ? Number(kgToLb(s.equipment.ezBarKg).toFixed(2)) : s.equipment.barLb,
       stock: s.equipment.platesLb.map((p) => ({ kg: p.lb, pairs: p.pairs })),
       step: smallestPlateLb(s) * 2,
       toUnit: (kg) => Number(kgToLb(kg).toFixed(2)),

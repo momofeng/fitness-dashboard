@@ -89,7 +89,7 @@ export default function ProgramPage() {
                 active.days.length > 1 && (
                   <button
                     type="button"
-                    className="text-sm text-chalk-4 hover:text-danger"
+                    className="text-sm text-chalk-3 hover:text-danger"
                     onClick={() => {
                       const prev = active;
                       void update({ ...active, days: active.days.filter((_, i) => i !== di), nextDayIndex: 0 });

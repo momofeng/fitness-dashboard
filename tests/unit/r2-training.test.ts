@@ -73,7 +73,7 @@ describe('磅制級距與槓片設定', () => {
     expect(lb.stock[0]).toEqual({ kg: 45, pairs: 4 });
     expect(lb.toUnit(lb.fromUnit(135))).toBe(135);
     expect(plateSetup(defaultSettings(1), 'ezbar').bar).toBe(10);
-    expect(plateSetup(s, 'ezbar').bar).toBe(22);
+    expect(plateSetup(s, 'ezbar').bar).toBe(22.05);
   });
 });
 

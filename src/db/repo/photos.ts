@@ -3,7 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { PHOTO_POSES, type PhotoPose } from '../../content/types';
 import { db, newId } from '../db';
-import { inRange, PHOTO } from '../limits';
+import { assertDay, inRange, isValidDay, PHOTO } from '../limits';
 import type { Photo } from '../schemas';
 
 export interface NewPhoto {
@@ -17,6 +17,7 @@ export interface NewPhoto {
 }
 
 export function validatePhoto(p: Omit<NewPhoto, 'blob'> & { bytes: number }): string | null {
+  if (!isValidDay(p.date)) return '拍攝日期格式不正確';
   if (!PHOTO_POSES.includes(p.pose)) return '未知的姿勢';
   if (p.note.length > 200) return '備註最多 200 字';
   if (!Number.isInteger(p.width) || !Number.isInteger(p.height) || !inRange('photoPx', p.width) || !inRange('photoPx', p.height)) return '照片尺寸不正確';
@@ -49,6 +50,7 @@ export async function addPhoto(input: NewPhoto): Promise<Photo> {
 }
 
 export async function updatePhotoMeta(id: string, patch: Partial<Pick<Photo, 'date' | 'pose' | 'note'>>) {
+  if (patch.date !== undefined) assertDay(patch.date, '拍攝日期');
   if (patch.note != null && patch.note.length > 200) throw new RangeError('備註最多 200 字');
   if (patch.pose != null && !PHOTO_POSES.includes(patch.pose)) throw new RangeError('未知的姿勢');
   await db.photos.update(id, { ...patch, updatedAt: Date.now() });

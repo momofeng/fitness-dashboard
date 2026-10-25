@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
-import { inRange } from '../limits';
+import { assertDay, inRange } from '../limits';
 import type { BodyMetric } from '../schemas';
 
 /** 一天一筆：主鍵由日期決定，重複輸入同一天就是更新 */
@@ -15,6 +15,7 @@ export function validateBodyPatch(patch: Partial<Omit<BodyMetric, 'id' | 'date' 
 }
 
 export async function upsertBodyMetric(date: string, patch: Partial<Omit<BodyMetric, 'id' | 'date' | 'updatedAt'>>) {
+  assertDay(date);
   const err = validateBodyPatch(patch);
   if (err) throw new RangeError(err);
   const id = bodyIdFor(date);

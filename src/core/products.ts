@@ -30,7 +30,8 @@ export interface RestockFields extends StockFields {
 
 /** 使用中、有設每日份數、剩餘天數 ≤ 提醒天數 → 該補貨了 */
 export function needsRestock(p: RestockFields, consumed: number): boolean {
-  if (p.status !== 'using' || p.remindDays <= 0) return false;
+  // 沒填每罐份數就無法估庫存，不提醒（否則一新增就顯示「該補貨」）
+  if (p.status !== 'using' || p.remindDays <= 0 || !p.servingsPerContainer || p.servingsPerContainer <= 0) return false;
   const d = daysLeft(servingsLeft(p, consumed), p.dailyServings);
   return d != null && d <= p.remindDays;
 }

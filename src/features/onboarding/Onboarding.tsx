@@ -205,7 +205,7 @@ function Wizard({ initial }: { initial: Settings }) {
                       <span className="block font-medium">{a.label}</span>
                       <span className="block text-sm text-chalk-3">{a.hint}</span>
                     </span>
-                    <span className="num text-sm text-chalk-4">×{a.value}</span>
+                    <span className="num text-sm text-chalk-3">×{a.value}</span>
                   </button>
                 );
               })}
@@ -358,7 +358,7 @@ function Macro({ label, g, color, sub }: { label: string; g: number; color: stri
         {g}
         <span className="ml-0.5 text-base font-medium text-chalk-3">g</span>
       </span>
-      {sub && <span className="text-cap text-chalk-4">{sub}</span>}
+      {sub && <span className="text-cap text-chalk-3">{sub}</span>}
     </div>
   );
 }

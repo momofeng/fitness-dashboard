@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { EQUIPMENT_LABEL, MUSCLE_LABEL } from '../../content/types';
 import { shortDateLabel } from '../../core/dates';
@@ -72,7 +72,7 @@ export default function ExerciseDetail() {
           )}
         </p>
         {ex.cues && <p className="text-base text-chalk-2">{ex.cues}</p>}
-        {ex.aliases.length > 0 && <p className="text-sm text-chalk-4">又稱：{ex.aliases.join('、')}</p>}
+        {ex.aliases.length > 0 && <p className="text-sm text-chalk-3">又稱：{ex.aliases.join('、')}</p>}
       </div>
 
       {prs.bestE1rm || prs.bestSessionVolume ? (
@@ -124,7 +124,7 @@ export default function ExerciseDetail() {
                 <div key={reps} className="flex flex-col bg-iron p-3">
                   <span className="label">{reps} 下</span>
                   <span className="num font-semibold">{dw(r.weightKg)}</span>
-                  <span className="num text-cap text-chalk-4">{r.date.slice(5)}</span>
+                  <span className="num text-cap text-chalk-3">{r.date.slice(5)}</span>
                 </div>
               ))}
           </div>
@@ -138,13 +138,13 @@ export default function ExerciseDetail() {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="休息秒數" hint="覆寫課表設定">
-              <NumberInput ariaLabel="休息秒數" value={pref?.restSec ?? null} decimals={0} min={0} max={900} placeholder="依課表" onChange={(v) => void savePref({ restSec: v ?? undefined })} />
+              <NumberInput ariaLabel="休息秒數" value={pref?.restSec ?? null} decimals={0} min={0} max={900} placeholder="依課表" onChange={() => undefined} onCommit={(v) => void savePref({ restSec: v ?? undefined })} />
             </Field>
             <Field label="每次加重（kg）" hint={`預設 ${ex.defaultIncrementKg}`}>
-              <NumberInput ariaLabel="每次加重" value={pref?.incrementKg ?? null} decimals={2} min={0} max={20} placeholder="預設" onChange={(v) => void savePref({ incrementKg: v ?? undefined })} />
+              <NumberInput ariaLabel="每次加重" value={pref?.incrementKg ?? null} decimals={2} min={0} max={20} placeholder="預設" onChange={() => undefined} onCommit={(v) => void savePref({ incrementKg: v ?? undefined })} />
             </Field>
           </div>
-          <RepRangePref key={pref?.updatedAt ?? 0} repMin={pref?.repMin} repMax={pref?.repMax} fallback={ex.defaultRepRange} onSave={(repMin, repMax) => void savePref({ repMin, repMax })} />
+          <RepRangePref repMin={pref?.repMin} repMax={pref?.repMax} fallback={ex.defaultRepRange} onSave={(repMin, repMax) => void savePref({ repMin, repMax })} />
         </div>
       </Section>
 
@@ -200,6 +200,11 @@ function RepRangePref({
 }) {
   const [lo, setLo] = useState<number | null>(repMin ?? null);
   const [hi, setHi] = useState<number | null>(repMax ?? null);
+  // 存檔後（或在別處清除）同步回來；不用 key 重建元件，避免輸入中失去焦點
+  useEffect(() => {
+    setLo(repMin ?? null);
+    setHi(repMax ?? null);
+  }, [repMin, repMax]);
   const bad = (v: number | null) => v != null && !(Number.isInteger(v) && v >= 1 && v <= 100);
   const error =
     bad(lo) || bad(hi)
@@ -217,9 +222,9 @@ function RepRangePref({
   return (
     <Field label="我的次數區間" hint={error ? undefined : repMin != null ? `已覆寫課表：${repMin}–${repMax} 下` : `空白＝依課表（動作預設 ${fallback[0]}–${fallback[1]} 下）`} error={error}>
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-        <NumberInput ariaLabel="次數下限" value={lo} decimals={0} min={1} max={100} clamp={false} placeholder="下限" onChange={(v) => { setLo(v); commit(v, hi); }} />
+        <NumberInput ariaLabel="次數下限" value={lo} decimals={0} min={1} max={100} clamp={false} placeholder="下限" onChange={setLo} onCommit={(v) => commit(v, hi)} />
         <span className="text-chalk-3">–</span>
-        <NumberInput ariaLabel="次數上限" value={hi} decimals={0} min={1} max={100} clamp={false} placeholder="上限" onChange={(v) => { setHi(v); commit(lo, v); }} />
+        <NumberInput ariaLabel="次數上限" value={hi} decimals={0} min={1} max={100} clamp={false} placeholder="上限" onChange={setHi} onCommit={(v) => commit(lo, v)} />
       </div>
     </Field>
   );

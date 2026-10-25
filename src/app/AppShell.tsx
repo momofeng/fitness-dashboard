@@ -92,7 +92,7 @@ export function AppShell() {
             to={n.to}
             end={n.end}
             className={({ isActive }) =>
-              `press flex h-16 flex-col items-center justify-center gap-1 text-cap font-medium ${isActive ? 'text-chalk' : 'text-chalk-4'}`
+              `press flex h-16 flex-col items-center justify-center gap-1 text-cap font-medium ${isActive ? 'text-chalk' : 'text-chalk-3'}`
             }
           >
             {({ isActive }) => (

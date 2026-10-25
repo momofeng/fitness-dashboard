@@ -6,7 +6,7 @@ import { addDays } from '../../core/dates';
 import { deloadAdvice, recoverySummary, type DeloadAdvice, type RecoverySummary } from '../../core/recovery';
 import { db } from '../../db/db';
 import { loadExerciseLookup } from '../../db/repo/exercises';
-import { isDeloadActive } from '../../db/repo/recovery';
+import { isDeloadActive, recentlyDeloaded } from '../../db/repo/recovery';
 import type { Program, Settings } from '../../db/schemas';
 import { stalledExercises } from '../workout/trainingStats';
 
@@ -38,7 +38,17 @@ export function useRecoveryAdvice(settings: Settings | undefined, program: Progr
       },
       { lowSleepH: settings.recovery.lowSleepH, lowEnergy: settings.recovery.lowEnergy },
     );
-    return { stalls, summary, advice, deloadActive: isDeloadActive(settings.recovery.deloadUntil, today) };
+    let final = advice;
+    if (advice.level === 'deload' && recentlyDeloaded(settings.recovery.deloadUntil, today)) {
+      final = {
+        level: 'watch',
+        title: '剛做過減量週',
+        reasons: advice.reasons,
+        actions: ['先照原本的重量練 2 週，看看能不能突破', '持續把睡眠補足', '仍然停滯再考慮換次數範圍或動作變式'],
+        offerDeload: false,
+      };
+    }
+    return { stalls, summary, advice: final, deloadActive: isDeloadActive(settings.recovery.deloadUntil, today) };
   }, [
     settings?.updatedAt,
     program?.id,

@@ -4,7 +4,7 @@ import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { SUPPLEMENT_CATEGORIES } from '../../content/types';
 import { db, newId } from '../db';
-import { inRange, LIMITS } from '../limits';
+import { assertDay, inRange, isValidDay, LIMITS } from '../limits';
 import type { Product, SupplementLog } from '../schemas';
 
 export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'> & { id?: string };
@@ -27,6 +27,7 @@ export function validateProduct(p: ProductInput): string | null {
     if (v != null && !inRange(key, v)) return `${label}請輸入 ${LIMITS[key][0]}–${LIMITS[key][1]}`;
   }
   if (!Number.isInteger(p.containersBought) || !Number.isInteger(p.remindDays)) return '罐數與提醒天數必須是整數';
+  if (p.purchasedAt != null && !isValidDay(p.purchasedAt)) return '購買日期格式不正確';
   return null;
 }
 
@@ -78,6 +79,7 @@ function logsOf(productId: string) {
 
 /** 設定某天吃了幾份；null = 取消打卡 */
 export async function setCheckIn(productId: string, date: string, servings: number | null) {
+  assertDay(date);
   const id = supplementLogId(productId, date);
   if (servings == null) {
     await db.supplementLogs.delete(id);

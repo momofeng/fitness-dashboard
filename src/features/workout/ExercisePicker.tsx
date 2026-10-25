@@ -46,7 +46,7 @@ export function ExerciseRowContent({ e }: { e: AnyExercise }) {
     <span className="min-w-0">
       <span className="block truncate font-medium">
         {e.nameZh}
-        {e.isCustom && <span className="ml-1.5 text-cap text-chalk-4">自建</span>}
+        {e.isCustom && <span className="ml-1.5 text-cap text-chalk-3">自建</span>}
       </span>
       <span className="block truncate text-sm text-chalk-3">
         {EQUIPMENT_LABEL[e.equipment]} · {e.primary.map((m) => MUSCLE_LABEL[m]).join('、')}
@@ -79,7 +79,7 @@ export function ExercisePicker({ open, onClose, onPick, title = '選擇動作' }
     <Sheet open={open} onClose={onClose} title={title}>
       <div className="flex flex-col gap-3">
         <div className="relative">
-          <Icon name="search" size={18} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-chalk-4" />
+          <Icon name="search" size={18} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-chalk-3" />
           <input
             type="search"
             className="field pl-9"

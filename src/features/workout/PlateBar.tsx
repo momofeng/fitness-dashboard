@@ -80,7 +80,7 @@ export function PlateBar({
       </div>
       {!compact && (
         <div className="min-w-0">
-          <p className="num text-base font-semibold">每側 {r.perSide.length ? r.perSide.map((p) => fmt(p, 2)).join(' + ') : '—'}</p>
+          <p className="num text-base font-semibold">每側 {r.perSide.length ? `${r.perSide.map((p) => fmt(p, 2)).join(' + ')} ${unit}` : '—'}</p>
           <p className="num text-sm text-chalk-3">
             {r.exact ? `含 ${fmt(bar, 2)} ${unit} 槓 = ${fmt(r.achievedKg, 2)} ${unit}` : `湊不出，最接近 ${fmt(r.achievedKg, 2)} ${unit}`}
           </p>

@@ -85,7 +85,7 @@ export function RestTimer({ workout, settings }: { workout: Workout; settings: S
         </div>
       )}
       {!over && (
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-cap text-chalk-4">
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-cap text-chalk-3">
           切到其他 App 時提醒可能延遲，畫面留在這裡最準。
           {perm === 'default' && (
             <button

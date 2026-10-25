@@ -1,15 +1,16 @@
 // 目標與習慣：目標進度由資料自動算；習慣看本週完成幾天，手動習慣可直接打卡。
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { GOAL_TYPE_LABEL, GOAL_TYPES, HABIT_RULE_LABEL, HABIT_RULES, type GoalKind, type HabitRule } from '../../content/types';
 import { addDays, rangeKeys, shortDateLabel } from '../../core/dates';
-import { daysLeft, goalProgress, weekCount } from '../../core/goals';
+import { daysLeft, defaultGoalDirection, goalProgress, weekCount } from '../../core/goals';
 import { fmt, fromDisplayWeight, toDisplayWeight, type WeightUnit } from '../../core/units';
-import { goalValueRange, LIMITS } from '../../db/limits';
+import { goalValueRange, isValidDay, LIMITS } from '../../db/limits';
 import { useExerciseLookup } from '../../db/repo/exercises';
 import {
+  backfillGoalStart,
   deleteGoal,
   deleteHabit,
   restoreHabit,
@@ -28,7 +29,7 @@ import {
 } from '../../db/repo/goals';
 import { CIRC_LABEL, CIRCUMFERENCES, type Circumference, type Goal, type Habit } from '../../db/schemas';
 import { Button, IconButton } from '../../ui/Button';
-import { Field, NumberInput, TextField } from '../../ui/Fields';
+import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
 import { Icon } from '../../ui/Icon';
 import { EmptyState, Meter, PageHeader, Section } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
@@ -54,6 +55,14 @@ export default function GoalsPage() {
     for (const g of goals ?? []) out.set(g.id, await goalCurrent(g, today));
     return out;
   }, [goals, today]);
+  // 建立時還沒有資料的目標：第一次有資料就當起點
+  useEffect(() => {
+    if (!goals || !currents) return;
+    for (const g of goals) {
+      const c = currents.get(g.id);
+      if (g.status === 'active' && g.startValue == null && c != null) void backfillGoalStart(g.id, c);
+    }
+  }, [goals, currents]);
 
   if (!settings || !goals || !habits) return null;
   const wu = settings.units.weight;
@@ -90,7 +99,7 @@ export default function GoalsPage() {
         {showOld &&
           old.map((g) => (
             <div key={g.id} className="card flex items-center gap-3 p-3">
-              <Icon name={g.status === 'done' ? 'check' : 'note'} size={18} className={g.status === 'done' ? 'text-go' : 'text-chalk-4'} />
+              <Icon name={g.status === 'done' ? 'check' : 'note'} size={18} className={g.status === 'done' ? 'text-go' : 'text-chalk-3'} />
               <p className="min-w-0 flex-1 truncate text-sm">{g.title}</p>
               <Button size="sm" variant="ghost" onClick={() => void setGoalStatus(g.id, 'active')}>
                 重新啟用
@@ -133,7 +142,7 @@ export default function GoalsPage() {
 
 function GoalCard({ goal: g, current, wu, today, onEdit }: { goal: Goal; current: number | null; wu: WeightUnit; today: string; onEdit: () => void }) {
   const { get } = useExerciseLookup();
-  const p = goalProgress(g.startValue, g.targetValue, current);
+  const p = goalProgress(g.startValue, g.targetValue, current, g.type === 'lift' ? 'up' : g.direction);
   const u = unitOf(g, wu);
   const left = daysLeft(g.dueDate, today);
   const [editing, setEditing] = useState(false);
@@ -144,7 +153,7 @@ function GoalCard({ goal: g, current, wu, today, onEdit }: { goal: Goal; current
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{g.title}</p>
           <p className="text-sm text-chalk-3">
-            {GOAL_TYPE_LABEL[g.type]}
+            {g.title.startsWith(GOAL_TYPE_LABEL[g.type]) ? '' : GOAL_TYPE_LABEL[g.type]}
             {g.type === 'lift' && g.exerciseId && ` · ${get(g.exerciseId)?.nameZh ?? ''} × ${g.targetReps} 下`}
             {g.type === 'circ' && g.circ && ` · ${CIRC_LABEL[g.circ]}`}
             {left != null && ` · ${left >= 0 ? `還有 ${left} 天` : `已過期 ${-left} 天`}`}
@@ -159,9 +168,21 @@ function GoalCard({ goal: g, current, wu, today, onEdit }: { goal: Goal; current
             / {fmt(show(g, g.targetValue, wu), 1)} {u}
           </span>
         </p>
-        <p className="num text-sm text-chalk-3">{p.pct != null ? `${Math.round(p.pct * 100)}%` : '還沒有資料'}</p>
+        <p className="num text-sm text-chalk-3">{p.pct != null ? `${Math.round(p.pct * 100)}%` : ''}</p>
       </div>
       <Meter value={(p.pct ?? 0) * 100} max={100} label={`${g.title} 進度`} color={p.done ? 'var(--go)' : 'var(--chalk)'} />
+      {current == null && g.type !== 'custom' && (
+        <p className="text-sm text-chalk-3">
+          還沒有資料：
+          {g.type === 'lift' ? (
+            `完成一組 ${g.targetReps ?? ''} 下以上的正式組後就會更新`
+          ) : (
+            <Link to="/body" className="text-chalk-2 underline decoration-chalk-4 underline-offset-2">
+              到身體頁記錄{g.type === 'bodyweight' ? '體重' : g.type === 'bodyFat' ? '體脂' : '圍度'}
+            </Link>
+          )}
+        </p>
+      )}
       {p.done ? (
         <div className="flex items-center gap-2">
           <p className="flex flex-1 items-center gap-1 text-sm font-medium text-go">
@@ -239,7 +260,8 @@ function HabitList({
                 {HABIT_RULE_LABEL[h.rule]} · 本週 {week}/{h.perWeek}
                 {week >= h.perWeek && ' ✓'}
               </p>
-              <div className="mt-1.5 flex gap-1" aria-label={`近 7 天：${last7.map((d) => (done.has(d) ? '完成' : '未完成')).join('、')}`}>
+              <div className="mt-1.5 flex items-center gap-1" aria-label={`近 7 天：${last7.map((d) => (done.has(d) ? '完成' : '未完成')).join('、')}`}>
+                <span className="mr-1 text-cap text-chalk-3">近 7 天</span>
                 {last7.map((d) => (
                   <span key={d} title={`${shortDateLabel(d)}：${done.has(d) ? '完成' : '未完成'}`} className={`h-2 w-5 rounded-full ${done.has(d) ? 'bg-go' : 'bg-iron-3'}`} />
                 ))}
@@ -256,7 +278,7 @@ function HabitList({
                 <Icon name="check" size={20} strokeWidth={2.4} />
               </button>
             ) : (
-              <span className={`flex h-11 w-11 shrink-0 items-center justify-center ${doneToday ? 'text-go' : 'text-chalk-4'}`} aria-label={doneToday ? '今天已達成' : '今天尚未達成'} role="img">
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center ${doneToday ? 'text-go' : 'text-chalk-3'}`} aria-label={doneToday ? '今天已達成' : '今天尚未達成'} role="img">
                 <Icon name={doneToday ? 'check' : 'minus'} size={20} />
               </span>
             )}
@@ -264,7 +286,7 @@ function HabitList({
           </div>
         );
       })}
-      <p className="px-4 py-2 text-cap text-chalk-4">自動判定：蛋白質達目標 95% 以上、喝水達目標、睡眠 7 小時以上算完成。本週從{weekStart === 1 ? '週一' : '週日'}起算。</p>
+      <p className="px-4 py-2 text-cap text-chalk-3">自動判定：蛋白質達目標 90% 以上、喝水達目標、睡眠 7 小時以上算完成。本週從{weekStart === 1 ? '週一' : '週日'}起算。</p>
     </div>
   );
 }
@@ -283,6 +305,11 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
   const [target, setTarget] = useState<number | null>(toShow(initial?.targetValue, initial?.type ?? 'bodyweight'));
   const [start, setStart] = useState<number | null>(initial?.type === 'custom' ? (initial.startValue ?? null) : null);
   const [due, setDue] = useState(initial?.dueDate ?? '');
+  const [direction, setDirection] = useState<'up' | 'down'>(initial?.direction ?? defaultGoalDirection(initial?.type ?? 'bodyweight', initial?.circ ?? null));
+  const [dirTouched, setDirTouched] = useState(initial?.direction != null);
+  useEffect(() => {
+    if (!dirTouched) setDirection(defaultGoalDirection(type, circ));
+  }, [type, circ, dirTouched]);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -309,9 +336,14 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
     startValue: initial?.startValue ?? null,
     targetValue: toKg(target) ?? Number.NaN,
     current: type === 'custom' ? (initial?.current ?? start) : null,
+    direction: type === 'lift' ? 'up' : direction,
     dueDate: due || null,
   });
-  const error = target == null ? '請輸入目標值' : validateGoal(draft());
+  const ex = exerciseId ? get(exerciseId) : undefined;
+  // 輔助型（數字越小越難）與純徒手動作不適合設定重量目標
+  const liftBad = type === 'lift' && ex && (ex.loadType === 'assisted' || ex.loadType === 'bodyweight') ? '這個動作不以重量計，請改用「自訂」目標（例如次數）' : null;
+  const error = target == null ? '請輸入目標值' : (liftBad ?? validateGoal(draft()));
+  const inRangeOrNull = (v: number | null) => (v != null && v >= lo && v <= hi ? v : null);
 
   async function save() {
     const d = draft();
@@ -319,8 +351,8 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
     setBusy(true);
     try {
       // 起始值：新目標以目前的紀錄為起點，進度從 0% 開始
-      if (!initial) d.startValue = type === 'custom' ? start : await goalCurrent(d, today);
-      if (initial && initial.type !== type) d.startValue = type === 'custom' ? start : await goalCurrent(d, today);
+      // 超出範圍的值（例如引體向上的附加重量 0）不當起點，之後第一筆合法資料再回填
+      if (!initial || initial.type !== type) d.startValue = type === 'custom' ? start : inRangeOrNull(await goalCurrent(d, today));
       await saveGoal(d);
       toast(initial ? '已更新目標' : '已新增目標');
       onClose();
@@ -365,7 +397,7 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
             <Field label="動作">
               <button type="button" onClick={() => setPicking(true)} className="field flex items-center justify-between gap-2 text-left">
                 <span className="truncate">{exerciseId ? get(exerciseId)?.nameZh : '選擇動作'}</span>
-                <Icon name="chevronRight" size={16} className="shrink-0 text-chalk-4" />
+                <Icon name="chevronRight" size={16} className="shrink-0 text-chalk-3" />
               </button>
             </Field>
             <Field label="次數">
@@ -384,17 +416,34 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
             </select>
           </Field>
         )}
+        {type !== 'lift' && (
+          <Field label="目標是">
+            <Segmented
+              ariaLabel="目標方向"
+              value={direction}
+              options={[
+                { value: 'up', label: '增加到' },
+                { value: 'down', label: '減少到' },
+              ]}
+              onChange={(v) => {
+                setDirection(v);
+                setDirTouched(true);
+              }}
+            />
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label={`目標值${u ? `（${u}）` : ''}`} error={target != null && error?.startsWith('目標值') ? `請輸入 ${fmt(shownRange[0]!, 1)}–${fmt(shownRange[1]!, 1)}` : null}>
             <NumberInput ariaLabel="目標值" value={target} decimals={2} min={shownRange[0]} max={shownRange[1]} clamp={false} onChange={setTarget} />
           </Field>
-          {type === 'custom' ? (
+          {type === 'custom' && (
             <Field label="單位">
               <input className="field" value={unit} maxLength={10} placeholder="例如：下、公里" onChange={(e) => setUnit(e.target.value)} aria-label="單位" />
             </Field>
-          ) : (
-            <Field label="期限（選填）">
-              <input type="date" className="field" value={due} min={today} onChange={(e) => setDue(e.target.value)} aria-label="期限" />
+          )}
+          {(
+            <Field label="期限（選填）" error={due !== '' && !isValidDay(due) ? '日期格式不正確' : null}>
+              <input type="date" className="field" value={due} min={today} aria-invalid={(due !== '' && !isValidDay(due)) || undefined} onChange={(e) => setDue(e.target.value)} aria-label="期限" />
             </Field>
           )}
         </div>
@@ -403,9 +452,9 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
             <NumberInput ariaLabel="起始值" value={start} decimals={2} min={LIMITS.customGoal[0]} max={LIMITS.customGoal[1]} clamp={false} onChange={setStart} />
           </Field>
         )}
-        <TextField label="名稱（選填）" value={title} maxLength={60} placeholder={autoTitle() || '例如：年底前體重 75 kg'} onChange={(e) => setTitle(e.target.value)} />
-        {error && target != null && <p className="text-sm text-danger">{error}</p>}
-        {!initial && type !== 'custom' && <p className="text-cap text-chalk-4">起點會用你目前的紀錄，之後依新紀錄自動更新進度。</p>}
+        <TextField label="名稱（選填）" value={title} maxLength={60} placeholder={autoTitle() || NAME_HINT[type]} onChange={(e) => setTitle(e.target.value)} />
+        {error && target != null && !error.startsWith('目標值') && !error.startsWith('期限') && <p className="text-sm text-danger">{error}</p>}
+        {!initial && type !== 'custom' && <p className="text-cap text-chalk-3">起點會用你目前的紀錄，之後依新紀錄自動更新進度。</p>}
         {initial && (
           <div className="grid grid-cols-2 gap-2 border-t border-seam pt-4">
             <Button onClick={() => void setGoalStatus(initial.id, 'archived').then(onClose)}>封存</Button>
@@ -428,6 +477,14 @@ function GoalForm({ initial, wu, today, onClose }: { initial: Goal | null; wu: W
     </Sheet>
   );
 }
+
+const NAME_HINT: Record<GoalKind, string> = {
+  bodyweight: '例如：年底前體重 75 kg',
+  lift: '例如：深蹲 100 kg × 5 下',
+  bodyFat: '例如：體脂 15%',
+  circ: '例如：上臂圍 38 cm',
+  custom: '例如：引體向上 10 下',
+};
 
 const HABIT_PRESETS: Array<{ name: string; rule: HabitRule; perWeek: number }> = [
   { name: '每天量體重', rule: 'weighIn', perWeek: 7 },

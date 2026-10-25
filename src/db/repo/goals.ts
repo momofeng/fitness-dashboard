@@ -2,7 +2,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, newId } from '../db';
-import { goalValueRange, inRange, LIMITS } from '../limits';
+import { assertDay, goalValueRange, inRange, isValidDay, LIMITS } from '../limits';
 import type { Goal, Habit, HabitLog } from '../schemas';
 
 export type GoalInput = Omit<Goal, 'id' | 'createdAt' | 'updatedAt' | 'doneAt' | 'status'> & { id?: string; status?: Goal['status'] };
@@ -23,6 +23,7 @@ export function validateGoal(g: GoalInput): string | null {
     if (g.targetReps == null || !Number.isInteger(g.targetReps) || !inRange('targetReps', g.targetReps)) return `次數請輸入 ${LIMITS.targetReps[0]}–${LIMITS.targetReps[1]}`;
   }
   if (g.type === 'circ' && !g.circ) return '請選擇圍度部位';
+  if (g.dueDate != null && !isValidDay(g.dueDate)) return '期限日期格式不正確';
   return null;
 }
 
@@ -46,6 +47,17 @@ export async function saveGoal(input: GoalInput): Promise<Goal> {
 
 export async function setGoalStatus(id: string, status: Goal['status']) {
   await db.goals.update(id, { status, doneAt: status === 'done' ? Date.now() : null, updatedAt: Date.now() });
+}
+
+/** 建立時還沒有資料的目標：第一次讀到資料就把它當起點（超出範圍的值不寫） */
+export async function backfillGoalStart(id: string, value: number) {
+  await db.transaction('rw', db.goals, async () => {
+    const g = await db.goals.get(id);
+    if (!g || g.startValue != null) return;
+    const [lo, hi] = goalValueRange(g.type);
+    if (!(Number.isFinite(value) && value >= lo && value <= hi)) return;
+    await db.goals.update(id, { startValue: value, updatedAt: Date.now() });
+  });
 }
 
 export async function updateGoalCurrent(id: string, current: number | null) {
@@ -119,6 +131,7 @@ export async function restoreHabit(data: { habit: Habit; logs: HabitLog[] }) {
 
 /** 手動打卡切換；回傳切換後是否完成 */
 export async function toggleHabit(habitId: string, date: string): Promise<boolean> {
+  assertDay(date);
   const id = habitLogId(habitId, date);
   return db.transaction('rw', db.habitLogs, async () => {
     if (await db.habitLogs.get(id)) {

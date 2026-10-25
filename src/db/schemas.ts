@@ -432,6 +432,8 @@ export const goalSchema = z
     targetValue: z.number(),
     /** 自訂目標手動更新的目前值 */
     current: z.number().nullable(),
+    /** 往上（增重、加重量）或往下（減腰圍、體脂）；建立時決定，不依目前值重算 */
+    direction: z.enum(['up', 'down']).optional(),
     dueDate: dateKey.nullable(),
     status: z.enum(['active', 'done', 'archived']),
     doneAt: ts.nullable(),

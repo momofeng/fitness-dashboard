@@ -12,6 +12,7 @@ import { Field, NumberInput, Segmented, TextField } from '../../ui/Fields';
 import { Icon } from '../../ui/Icon';
 import { EmptyState, Meter, PageHeader } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
+import { isValidDay } from '../../db/limits';
 import { toast, toastUndo } from '../../ui/toast';
 import { useTargets } from '../shared/useToday';
 import { KcalHero, MacroBars } from './MacroSummary';
@@ -30,7 +31,8 @@ export default function NutritionDay() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { targets, settings, today } = useTargets();
-  const date = params.get('date') ?? today;
+  const rawDate = params.get('date');
+  const date = isValidDay(rawDate) && rawDate <= today ? rawDate : today;
   const logs = useFoodLogs(date);
   const daily = useDailyLog(date);
   const [entry, setEntry] = useState<FoodLog | null>(null);
@@ -156,7 +158,7 @@ export default function NutritionDay() {
 
       {logs.length > 0 && (
         <div className="flex flex-col gap-2 px-1">
-          <p className="text-sm text-chalk-3">這天的飲食都記了嗎？（自適應 TDEE 只用記錄完整的日子）</p>
+          <p className="text-sm text-chalk-3">這天的飲食都記了嗎？自適應 TDEE 只用記錄完整的日子；「自動判斷」是熱量達目標 70% 以上就算完整。</p>
           <Segmented
             size="sm"
             ariaLabel="這天的飲食記錄"

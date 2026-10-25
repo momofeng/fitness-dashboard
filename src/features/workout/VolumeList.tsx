@@ -28,12 +28,12 @@ export function VolumeList({ volume, min, max, scaleNote }: { volume: MuscleVolu
             </div>
             <span className="num text-right text-sm">
               {fmt(v, 1)}
-              {status && <span className={`ml-1 text-cap ${status === '偏多' ? 'text-warn' : 'text-chalk-4'}`}>{status}</span>}
+              {status && <span className={`ml-1 text-cap ${status === '偏多' ? 'text-warn' : 'text-chalk-3'}`}>{status}</span>}
             </span>
           </div>
         );
       })}
-      <p className="pt-1 text-cap text-chalk-4">
+      <p className="pt-1 text-cap text-chalk-3">
         淡色帶是參考區間 {min}–{max} 組／週；主要肌群算 1 組、輔助肌群算 0.5 組。{scaleNote}
       </p>
     </div>
