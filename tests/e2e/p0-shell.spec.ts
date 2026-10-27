@@ -61,7 +61,7 @@ test('離線：首次載入後切到離線，重新整理並切換各頁仍可�
   const squat = page.getByRole('region', { name: '槓鈴深蹲' });
   await squat.getByLabel('第 1 組重量').fill('40');
   await squat.getByRole('button', { name: '完成第 1 組' }).click();
-  await expect(squat.getByRole('button', { name: '取消第 1 組' })).toBeVisible();
+  await expect(squat.getByRole('button', { name: '編輯第 1 組' })).toBeVisible();
   expect(await readAll(page, 'sets')).toHaveLength(1);
   await context.setOffline(false);
 });

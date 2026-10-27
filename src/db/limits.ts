@@ -4,6 +4,12 @@
 import { isDateKey } from '../core/dates';
 
 export const LIMITS = {
+  setWeightKg: [0, 1000],
+  setReps: [0, 1000],
+  machineStep: [0.1, 100],
+  cardioSpeed: [0, 100],
+  cardioIncline: [0, 100],
+  cardioResistance: [0, 1000],
   weightKg: [20, 400],
   bodyFatPct: [2, 70],
   circCm: [5, 300],
@@ -109,6 +115,29 @@ export const PHOTO = {
   thumbMaxChars: 200_000,
   /** 一次選取的原始檔案上限 */
   inputMaxBytes: 40 * 1024 * 1024,
+} as const;
+
+// ---------- AI 辨識（拍照／一句話輸入） ----------
+
+export const AI = {
+  /** 一次辨識最多回傳幾項 */
+  maxItems: 8,
+  /** 估計重量（公克）；超出就夾進範圍，使用者仍可在確認畫面改成別的值 */
+  gramsRange: [1, 3000],
+  /** 單項食物名稱長度 */
+  nameMax: 60,
+  altNamesMax: 3,
+  /** 一句話輸入的字數上限 */
+  textMax: 300,
+  timeoutMs: 25_000,
+  /** 送出辨識的照片：長邊、JPEG 品質（不存進資料庫，辨識完即丟） */
+  imageLongSide: 1024,
+  imageQuality: 0.8,
+  /** 「記住我的校正」最多保留幾筆，超過刪最舊的 */
+  matchesMax: 2000,
+  defaultModel: 'gemini-3.1-flash-lite',
+  modelMax: 80,
+  keyMax: 200,
 } as const;
 
 // ---------- 目標 ----------

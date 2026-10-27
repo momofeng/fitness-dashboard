@@ -18,6 +18,7 @@ export const router = createHashRouter([
         element: <AppShell />,
         children: [
           { index: true, lazy: page(() => import('../features/dashboard/Dashboard')) },
+          { path: 'sync', lazy: page(() => import('../features/sync/SyncPage')) },
           { path: 'train', lazy: page(() => import('../features/workout/TrainHome')) },
           { path: 'train/history', lazy: page(() => import('../features/workout/History')) },
           { path: 'train/history/:id', lazy: page(() => import('../features/workout/WorkoutDetail')) },

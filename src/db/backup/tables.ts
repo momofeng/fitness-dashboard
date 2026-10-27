@@ -32,6 +32,7 @@ export const BACKUP_SPECS: Record<BackupTable, TableSpec> = {
   habits: { key: 'id', stamp: 'updatedAt', label: '習慣' },
   habitLogs: { key: 'id', stamp: 'updatedAt', label: '習慣打卡' },
   photos: { key: 'id', stamp: 'updatedAt', label: '進度照' },
+  aiMatches: { key: 'norm', stamp: 'updatedAt', label: 'AI 辨識對應' },
 };
 
 export const BACKUP_TABLES = Object.keys(BACKUP_SPECS) as BackupTable[];

@@ -1,12 +1,14 @@
 // 肌力相關計算：e1RM、PR、槓片配重、暖身組。
 
 import type { LoadType } from '../../content/types';
+import { needsReview, type SetFlag } from './logging';
 import { roundTo } from '../units';
 
 export type E1rmFormula = 'epley' | 'brzycki';
 export type SetKind = 'warmup' | 'working' | 'drop';
 
 export interface SetLike {
+  flags?: SetFlag[];
   weightKg: number;
   reps: number;
   rir?: number | null;
@@ -75,7 +77,7 @@ export function computePrs(sets: DatedSet[], opts: PrOptions): PrSummary {
   for (const s of sets) {
     if (s.kind !== 'working' || s.reps < 1) continue;
     const load = effectiveLoad(opts.loadType, s.weightKg, opts.bodyweightKg);
-    if (opts.loadType !== 'bodyweight') {
+    if (opts.loadType !== 'bodyweight' && !needsReview(s)) {
       const est = e1rm(load, s.reps, opts.formula, s.rir, opts.useRir);
       if (est != null && (bestE1rm == null || est > bestE1rm.value)) {
         bestE1rm = { value: est, date: s.date, weightKg: s.weightKg, reps: s.reps };
@@ -101,7 +103,7 @@ export function computePrs(sets: DatedSet[], opts: PrOptions): PrSummary {
 export function sessionBestE1rm(sets: SetLike[], opts: PrOptions): number | null {
   let best: number | null = null;
   for (const s of sets) {
-    if (s.kind !== 'working') continue;
+    if (s.kind !== 'working' || needsReview(s)) continue;
     const est = e1rm(effectiveLoad(opts.loadType, s.weightKg, opts.bodyweightKg), s.reps, opts.formula, s.rir, opts.useRir);
     if (est != null && (best == null || est > best)) best = est;
   }

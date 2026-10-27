@@ -5,6 +5,7 @@
 import Dexie, { type EntityTable, type Table, type Transaction } from 'dexie';
 import { MIGRATION_TABLES, MIGRATIONS } from './backup/migrate';
 import type {
+  AiMatch,
   BodyMetric,
   Cardio,
   CustomExercise,
@@ -29,7 +30,7 @@ import type {
 
 /** 資料庫名稱要唯一：同一個 github.io 網域下的其他專案共用 origin */
 export const DB_NAME = 'momofeng-fitness-dashboard';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
 
 export const STORES_V1 = {
   settings: 'id',
@@ -65,7 +66,13 @@ export const STORES_V2 = {
   habitLogs: 'id, date, [habitId+date]',
 } as const;
 
-export type TableName = keyof typeof STORES_V2;
+/** v3：新增 aiMatches（AI 辨識名稱 → 你選定的食物）。只新增表，沒有資料轉換 */
+export const STORES_V3 = {
+  ...STORES_V2,
+  aiMatches: 'norm, updatedAt',
+} as const;
+
+export type TableName = keyof typeof STORES_V3;
 
 export interface PhotoBlob {
   id: string;
@@ -106,6 +113,7 @@ export class FitnessDB extends Dexie {
   habitLogs!: EntityTable<HabitLog, 'id'>;
   photos!: EntityTable<Photo, 'id'>;
   photoBlobs!: Table<PhotoBlob, string>;
+  aiMatches!: EntityTable<AiMatch, 'norm'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -113,6 +121,8 @@ export class FitnessDB extends Dexie {
     this.version(2)
       .stores(STORES_V2)
       .upgrade((tx) => upgradeTables(tx, 1));
+    this.version(3).stores(STORES_V3);
+    this.version(4).stores(STORES_V3).upgrade((tx) => upgradeTables(tx, 3));
   }
 }
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { PROGRAM_TEMPLATES } from '../../content/programTemplates';
 import { todayKey } from '../../core/dates';
 import { ACTIVITY_LEVELS } from '../../core/nutrition';
@@ -103,7 +103,7 @@ function Wizard({ initial }: { initial: Settings }) {
               <p className="text-base font-medium">開始前請先了解</p>
               <ul className="flex list-disc flex-col gap-1.5 pl-5 text-base text-chalk-2">
                 <li>熱量、營養素與重量建議都是依公式算出的<strong className="text-chalk">估算值</strong>，不是醫療或營養諮詢。有傷病、慢性病或特殊飲食需求請先詢問醫師。</li>
-                <li>資料<strong className="text-chalk">只存在這支手機</strong>，不會上傳。換手機或清除瀏覽器資料前，請先到「設定 → 資料與備份」匯出備份。</li>
+                <li>資料<strong className="text-chalk">只存在這支手機</strong>，預設不會上傳。你可另外啟用加密雲端同步；AI 辨識則會將辨識用的照片或文字送到 Google。換手機或清除瀏覽器資料前，請先到「設定 → 資料與備份」匯出備份。</li>
               </ul>
               <label className="flex min-h-11 cursor-pointer items-center gap-3">
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="h-5 w-5 accent-[var(--go)]" />
@@ -112,7 +112,8 @@ function Wizard({ initial }: { initial: Settings }) {
             </div>
             <div className="flex flex-col gap-2">
               <p className="text-sm text-chalk-3">換了新手機？可以直接用之前匯出的備份檔還原。</p>
-              <RestoreBackup label="從備份檔還原" buttonProps={{ variant: 'ghost' }} onDone={() => {
+  <Link to="/sync" className="press flex min-h-11 items-center justify-center rounded-md border border-seam px-3 text-sm">已有紀錄？使用恢復金鑰或掃碼同步</Link>
+            <RestoreBackup label="從備份檔還原" buttonProps={{ variant: 'ghost' }} onDone={() => {
                   // 還原後整頁重新載入，所有畫面都從新資料開始
                   location.hash = '#/';
                   location.reload();

@@ -58,7 +58,8 @@ export function RestoreBackup({ label = '從備份檔還原', buttonProps, onDon
         // 直接下載到「下載」資料夾，不走分享面板，避免使用者關掉面板後仍執行取代
         download(new Blob([JSON.stringify(current)], { type: 'application/json' }), backupFileName().replace('fitness-backup', 'fitness-before-import'));
       }
-      await applyBackup(db, parsed.data, mode, blobs);
+      const { withSyncStopped } = await import('../../sync/engine');
+      await withSyncStopped(() => applyBackup(db, parsed.data, mode, blobs));
       setParsed(null);
       toast(mode === 'replace' ? '已用備份取代目前資料' : '已合併備份資料');
       onDone?.();

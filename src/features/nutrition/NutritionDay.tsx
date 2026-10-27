@@ -15,6 +15,7 @@ import { Sheet } from '../../ui/Sheet';
 import { isValidDay } from '../../db/limits';
 import { toast, toastUndo } from '../../ui/toast';
 import { useTargets } from '../shared/useToday';
+import { AiFoodEntry } from './AiEntry';
 import { KcalHero, MacroBars } from './MacroSummary';
 
 /** 依時段猜現在要記哪一餐 */
@@ -76,6 +77,8 @@ export default function NutritionDay() {
         <p className="card p-4 text-sm text-chalk-3">記錄體重後就能算出每日目標。</p>
       )}
 
+      <AiFoodEntry date={date} meal={guessMeal(undefined, settings.dayCutoffHour)} />
+
       <div className="card flex items-center gap-3 p-4">
         <Icon name="drop" className="shrink-0 text-carbs" />
         <div className="min-w-0 flex-1">
@@ -119,6 +122,7 @@ export default function NutritionDay() {
                         <span className="block truncate">{l.name}</span>
                         <span className="num block text-sm text-chalk-3">
                           {l.source === 'quick' ? '快速加入' : l.unit === 'g' ? `${fmt(l.qty, 0)} g` : `${fmt(l.qty, 2)} 份`}
+                          {l.source === 'ai' && ' · AI 辨識'}
                         </span>
                       </span>
                       <span className="num shrink-0 text-right text-sm">

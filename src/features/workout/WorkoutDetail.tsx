@@ -1,14 +1,19 @@
 import { Link, useNavigate, useParams } from 'react-router';
+import { useState } from 'react';
 import { shortDateLabel } from '../../core/dates';
 import { tonnage } from '../../core/training/volume';
-import { fmt, toDisplayWeight } from '../../core/units';
+import { belongsToItem, WEIGHT_LABEL } from '../../core/training/logging';
+import { fmt, toDisplayWeight, fromDisplayWeight } from '../../core/units';
 import { useExerciseLookup } from '../../db/repo/exercises';
 import { useSettings } from '../../db/repo/settings';
-import { deleteWorkout, restoreWorkout, useWorkout, useWorkoutSets } from '../../db/repo/workouts';
+import { confirmNextWeight, deleteWorkout, restoreWorkout, useWorkout, useWorkoutSets, updateWorkoutDetails } from '../../db/repo/workouts';
 import { Button } from '../../ui/Button';
-import { Icon } from '../../ui/Icon';
+import { Field, NumberInput } from '../../ui/Fields';
 import { EmptyState, goBackOr, PageHeader, Section } from '../../ui/Layout';
-import { toastUndo } from '../../ui/toast';
+import { toast, toastUndo } from '../../ui/toast';
+import { WorkoutShare } from './WorkoutShare';
+import { SetRecorder } from './SetRecorder';
+import { contextText } from './MachineEditor';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -17,93 +22,50 @@ export default function WorkoutDetail() {
   const sets = useWorkoutSets(id);
   const settings = useSettings();
   const { get } = useExerciseLookup();
-
   if (workout === undefined || sets === undefined || !settings) return null;
   if (workout === null) return <EmptyState icon="history" title="找不到這場訓練" />;
-  const unit = settings.units.weight;
-  const exerciseIds = [...new Set([...sets].sort((a, b) => a.completedAt - b.completedAt).map((s) => s.exerciseId))];
   const minutes = workout.endedAt ? Math.round((workout.endedAt - workout.startedAt) / 60000) : null;
-
-  return (
-    <div className="flex flex-col gap-6 pb-6">
-      <PageHeader title={workout.dayName} back="/train/history" sub={shortDateLabel(workout.date)} />
-
-      <div className="grid grid-cols-3 gap-2">
-        <div className="card flex flex-col p-3">
-          <span className="label">時間</span>
-          <span className="num text-h3 font-semibold">{minutes ?? '–'}<span className="ml-0.5 text-sm font-normal text-chalk-3">分</span></span>
-        </div>
-        <div className="card flex flex-col p-3">
-          <span className="label">正式組</span>
-          <span className="num text-h3 font-semibold">{sets.filter((s) => s.kind === 'working').length}</span>
-        </div>
-        <div className="card flex flex-col p-3">
-          <span className="label">訓練量</span>
-          <span className="num text-h3 font-semibold">
-            {fmt(toDisplayWeight(tonnage(sets), unit), 0)}
-            <span className="ml-0.5 text-sm font-normal text-chalk-3">{unit}</span>
-          </span>
-        </div>
-      </div>
-
-      {workout.summary && workout.summary.prs.length > 0 && (
-        <Section title="新紀錄">
-          <div className="flex flex-col gap-2">
-            {workout.summary.prs.map((p) => (
-              <p key={p} className="flex items-center gap-2 rounded-md bg-go-soft px-3 py-2 font-medium text-go">
-                <Icon name="star" size={18} />
-                {p}
-              </p>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      <Section title="動作">
-        <div className="flex flex-col gap-3">
-          {exerciseIds.map((exId) => {
-            const list = sets.filter((s) => s.exerciseId === exId);
-            const msg = workout.summary?.messages.find((m) => m.exerciseId === exId)?.text;
-            return (
-              <div key={exId} className="card p-4">
-                <Link to={`/train/exercise/${exId}`} className="flex items-center justify-between gap-2">
-                  <h3 className="truncate text-h4 font-semibold">{get(exId)?.nameZh ?? exId}</h3>
-                  <Icon name="chevronRight" size={18} className="shrink-0 text-chalk-3" />
-                </Link>
-                <ol className="mt-2 flex flex-col gap-1">
-                  {list.map((s, i) => (
-                    <li key={s.id} className="num flex items-center gap-3 text-base">
-                      <span className={`w-8 text-sm ${s.kind === 'working' ? 'text-chalk-2' : 'text-chalk-3'}`}>
-                        {s.kind === 'warmup' ? '暖' : s.kind === 'drop' ? '遞減' : list.filter((x, j) => x.kind === 'working' && j <= i).length}
-                      </span>
-                      <span className={s.kind === 'working' ? '' : 'text-chalk-3'}>
-                        {fmt(toDisplayWeight(s.weightKg, unit), 2)} {unit} × {s.reps}
-                        {s.rir != null && <span className="ml-2 text-sm text-chalk-3">RIR {s.rir}</span>}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-                {msg && <p className="mt-2 rounded-md bg-well px-3 py-2 text-sm text-chalk-2">{msg}</p>}
-              </div>
-            );
-          })}
-          {exerciseIds.length === 0 && <p className="px-1 text-chalk-3">這場沒有記錄任何組。</p>}
-        </div>
-      </Section>
-
-      <Button
-        variant="danger"
-        icon="trash"
-        block
-        onClick={async () => {
-          const backup = await deleteWorkout(workout.id);
-          goBackOr(navigate, '/train/history');
-          if (backup) toastUndo('已刪除這場訓練', () => restoreWorkout(backup));
-        }}
-      >
-        刪除這場訓練
-      </Button>
-      <p className="px-1 text-cap text-chalk-3">刪除不會改回已經計算過的下次重量。</p>
+  const plan = [...workout.plan];
+  for (const exerciseId of new Set(sets.filter((s) => !plan.some((p, i) => belongsToItem(s, p, i, plan))).map((s) => s.exerciseId))) {
+    plan.push({ exerciseId, sets: 0, repMin: 1, repMax: 100, targetWeightKg: null, targetReps: 1, restSec: 0, progression: 'none', incrementKg: 0 });
+  }
+  return <div className="flex flex-col gap-6 pb-6">
+    <PageHeader title={workout.dayName} back="/train/history" sub={shortDateLabel(workout.date)} />
+    <div className="grid grid-cols-3 gap-2">
+      <div className="card p-3"><p className="label">時間</p><p className="num text-h3 font-semibold">{minutes ?? '–'} 分</p></div>
+      <div className="card p-3"><p className="label">正式組</p><p className="num text-h3 font-semibold">{sets.filter((s) => s.kind === 'working').length} 組</p></div>
+      <div className="card p-3"><p className="label">標示重量訓練量</p><p className="num text-h3 font-semibold">{fmt(toDisplayWeight(tonnage(sets), settings.units.weight), 0)}</p><p className="text-sm text-chalk-3">{settings.units.weight} · 次</p></div>
     </div>
-  );
+    <WorkoutShare workoutId={workout.id} />
+    {workout.correctedAt && <p className="rounded-md bg-warn-soft p-3 text-sm text-warn">紀錄已更正，統計與分享已更新。既有下次重量不倒推覆寫，請在下方確認。</p>}
+    {!!workout.summary?.prs.length && <Section title="新紀錄">{workout.summary.prs.map((p) => <p className="rounded-md bg-go-soft p-3 text-go" key={p}>{p}</p>)}</Section>}
+    <Section title="動作與逐組狀態">
+      <div className="flex flex-col gap-4">{plan.map((item, index) => {
+        const list = sets.filter((s) => belongsToItem(s, item, index, plan));
+        const unit = item.context?.unit ?? settings.units.weight;
+        return <section className="card flex flex-col gap-3 p-4" key={item.id ?? index} aria-label={item.nameSnapshot ?? get(item.exerciseId)?.nameZh}>
+          <Link to={'/train/exercise/' + item.exerciseId} className="min-h-11 text-h4 font-semibold">{item.nameSnapshot ?? get(item.exerciseId)?.nameZh ?? item.exerciseId}</Link>
+          <p className="text-sm text-chalk-3">{WEIGHT_LABEL[item.context?.weightMeaning ?? 'unknown']} · 正式組 {list.filter((s) => s.kind === 'working').length}／計畫 {item.sets}</p>
+          {contextText(item.context) && <p className="break-words text-sm text-chalk-2">{contextText(item.context)}</p>}
+          {item.skipReason && <p className="text-sm text-warn">跳過剩餘組：{item.skipReason}</p>}
+          {item.replacedBy && <p className="text-sm text-warn">剩餘組改用：{plan.find((p) => p.id === item.replacedBy)?.nameSnapshot ?? '替代動作'}</p>}
+          {list.map((s, n) => <SetRecorder key={s.id} workout={workout} item={item} position={s.position ?? n} kind={s.kind}
+            n={list.filter((v, j) => v.kind === s.kind && j <= n).length} label={s.kind === 'working' ? undefined : s.kind === 'warmup' ? '暖身組' : '遞減組'}
+            logged={s} defaults={{ weightKg: s.weightKg, reps: s.reps }} unit={unit} useRir={settings.training.useRir} isNext={false} step={item.context?.step}
+            onLog={async () => undefined} />)}
+          {!list.length && <p className="text-sm text-chalk-3">未記錄任何組</p>}
+          {workout.summary?.messages.filter((m) => m.exerciseId === item.exerciseId).map((m) => <p className="rounded-md bg-well p-3 text-sm text-chalk-2" key={m.exerciseId}>{m.text}</p>)}
+          {workout.correctedAt && <NextWeight exerciseId={item.exerciseId} unit={unit} />}
+        </section>;
+      })}</div>
+    </Section>
+    <Field label="給教練的備註"><textarea aria-label="給教練的備註" className="field min-h-20 py-2" defaultValue={workout.notes} maxLength={2000} onBlur={(e) => void updateWorkoutDetails(workout.id, { notes: e.target.value })} /></Field>
+    <Button variant="danger" icon="trash" block onClick={async () => { const backup = await deleteWorkout(workout.id); goBackOr(navigate, '/train/history'); if (backup) toastUndo('已刪除這場訓練', () => restoreWorkout(backup)); }}>刪除這場訓練</Button>
+    <p className="text-sm text-chalk-3">刪除不會改回已經計算過的下次重量。</p>
+  </div>;
+}
+function NextWeight({ exerciseId, unit }: { exerciseId: string; unit: 'kg' | 'lb' }) {
+  const [weight, setWeight] = useState<number | null>(null);
+  return <div className="flex flex-col gap-2"><Field label="手動確認下次重量"><NumberInput ariaLabel="手動確認下次重量" value={weight} clamp={false} min={0} max={toDisplayWeight(1000, unit)} suffix={unit} onChange={setWeight} /></Field>
+    <Button disabled={weight == null || weight < 0 || fromDisplayWeight(weight, unit) > 1000} onClick={async () => { try { await confirmNextWeight(exerciseId, fromDisplayWeight(weight!, unit)); toast('已確認下次重量'); } catch { toast('儲存失敗，請重試', { tone: 'error' }); } }}>確認下次重量</Button></div>;
 }

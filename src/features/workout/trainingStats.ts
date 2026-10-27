@@ -1,3 +1,4 @@
+import { needsReview } from '../../core/training/logging';
 // 訓練頁用的彙整查詢（Dexie ＋ core 計算），給 useLiveQuery 使用。
 
 import { addDays, diffDays, startOfWeek } from '../../core/dates';
@@ -38,6 +39,9 @@ export async function exerciseSeries(exerciseId: string, settings: Settings, opt
   if (!ex) return [];
   const bw = await latestWeightKg();
   let sets = await exerciseHistory(exerciseId);
+  const parents = await db.workouts.bulkGet([...new Set(sets.map((s) => s.workoutId))]);
+  const doneIds = new Set(parents.filter((w) => w?.status === 'done').map((w) => w!.id));
+  sets = sets.filter((s) => doneIds.has(s.workoutId));
   if (opts.skipDeload) {
     const wids = [...new Set(sets.map((s) => s.workoutId))];
     const ws = await db.workouts.bulkGet(wids);
@@ -49,7 +53,7 @@ export async function exerciseSeries(exerciseId: string, settings: Settings, opt
   const out: ExerciseSeriesPoint[] = [];
   for (const [workoutId, group] of byWorkout) {
     const best = sessionBestE1rm(group, { formula: settings.training.e1rmFormula, useRir: settings.training.useRir, loadType: ex.loadType, bodyweightKg: bw });
-    const working = group.filter((s) => s.kind === 'working');
+    const working = group.filter((s) => s.kind === 'working' && !needsReview(s));
     if (best == null || !working.length) continue;
     const top = working.reduce((a, b) => (b.weightKg > a.weightKg || (b.weightKg === a.weightKg && b.reps > a.reps) ? b : a));
     out.push({ date: group[0]!.date, workoutId, best, topWeightKg: top.weightKg, topReps: top.reps });

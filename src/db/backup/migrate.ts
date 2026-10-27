@@ -32,11 +32,35 @@ export function migrateSettingsV1toV2(row: unknown): unknown {
 export const MIGRATIONS: Record<number, (tables: RawTables) => RawTables> = {
   // v1 → v2：只有設定需要補欄位；其他表的新欄位都是選填，Round 2 預留表在 v1 沒有任何寫入介面
   1: (t) => (t.settings ? { ...t, settings: t.settings.map(migrateSettingsV1toV2) } : t),
+  // v2 → v3：只新增 aiMatches 表，舊備份沒有這張表（匯入時視為空），不需要轉換
+  2: (t) => t,
+  3: (tables) => {
+    const workouts = (tables.workouts ?? []).map((row) => {
+      if (!isObj(row) || !Array.isArray(row.plan)) return row;
+      return { ...row, plan: row.plan.map((p, i) => isObj(p) ? { ...p, id: p.id ?? String(row.id).slice(0, 80) + ':p:' + i } : p) };
+    });
+    const byId = new Map(workouts.filter(isObj).map((w) => [w.id, w]));
+    const positions = new Map<string, number>();
+    const ordered = [...(tables.sets ?? [])].sort((a, b) => isObj(a) && isObj(b) ? Number(a.order ?? 0) - Number(b.order ?? 0) : 0);
+    const sets = ordered.map((row) => {
+      if (!isObj(row)) return row;
+      const w = byId.get(row.workoutId);
+      const item = (w?.plan as unknown[] | undefined)?.find((p) => isObj(p) && p.exerciseId === row.exerciseId);
+      const planItemId = row.planItemId ?? (isObj(item) ? item.id : undefined);
+      const key = String(row.workoutId) + ':' + String(planItemId ?? row.exerciseId) + ':' + String(row.kind);
+      const position = positions.get(key) ?? 0;
+      positions.set(key, position + 1);
+      return { ...row, ...(planItemId ? { planItemId } : {}), position: row.position ?? position };
+    });
+    return { ...tables, workouts, sets };
+  },
 };
 
 /** 每個遷移會改到哪些表（Dexie upgrade 只需讀寫這些表） */
 export const MIGRATION_TABLES: Record<number, string[]> = {
   1: ['settings'],
+  2: [],
+  3: ['workouts', 'sets'],
 };
 
 export function migrateTables(tables: RawTables, from: number, to: number): RawTables {

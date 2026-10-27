@@ -4,8 +4,13 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { EQUIPMENT_LABEL, MUSCLE_LABEL } from '../../content/types';
 import { lbStepFor, roundingStepFor } from '../../core/training/progression';
 import { warmupSets } from '../../core/training/strength';
+import { belongsToItem, setAtPosition, WEIGHT_LABEL, SKIP_REASONS } from '../../core/training/logging';
+import { SetRecorder as SetRow, type RecorderValues } from './SetRecorder';
+import { MachineEditor, contextText } from './MachineEditor';
+import { createMachineVariant } from '../../db/repo/exercises';
+import { WorkoutShare } from './WorkoutShare';
 import { tonnage } from '../../core/training/volume';
-import { fmt, fromDisplayWeight, roundTo, toDisplayWeight } from '../../core/units';
+import { fmt, roundTo, toDisplayWeight } from '../../core/units';
 import { db } from '../../db/db';
 import { smallestPlateKg } from '../../db/defaults';
 import { LIMITS } from '../../db/limits';
@@ -13,17 +18,15 @@ import { useExerciseLookup, type AnyExercise } from '../../db/repo/exercises';
 import { useSettings } from '../../db/repo/settings';
 import {
   addExerciseToWorkout,
-  deleteSet,
   discardWorkout,
   finishWorkout,
   lastSessionSets,
   logSet,
   removePlanItem,
   restorePlanItem,
-  restoreSet,
   swapPlanExercise,
   updatePlanItem,
-  updateSet,
+  updateWorkoutDetails,
   useWorkout,
   useWorkoutSets,
   type FinishResult,
@@ -106,6 +109,7 @@ function FinishResultView({ workoutId, result, get }: { workoutId: string; resul
           </div>
         ))}
       </div>
+      <WorkoutShare workoutId={workoutId} />
       <div className="mt-auto">
         <Button variant="primary" size="lg" block onClick={go}>
           查看這場紀錄
@@ -133,6 +137,7 @@ function Session({
   const navigate = useNavigate();
   const [now, setNow] = useState(Date.now());
   const [picker, setPicker] = useState<{ mode: 'add' } | { mode: 'swap'; index: number } | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [menuIndex, setMenuIndex] = useState<number | null>(null);
   const [finishOpen, setFinishOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -153,10 +158,9 @@ function Session({
   const nextKey = useMemo(() => {
     for (let i = 0; i < workout.plan.length; i++) {
       const p = workout.plan[i]!;
-      const done = sets.filter((s) => s.exerciseId === p.exerciseId && s.kind === 'working').length;
-      const firstIndexForExercise = workout.plan.findIndex((q) => q.exerciseId === p.exerciseId);
-      if (firstIndexForExercise !== i) continue;
-      if (done < p.sets) return `${i}:${done}`;
+      if (p.skipReason || p.replacedBy) continue;
+      const working = sets.filter((s) => belongsToItem(s, p, i, workout.plan) && s.kind === 'working');
+      for (let n = 0; n < p.sets; n++) if (!setAtPosition(working, n)) return String(i) + ':' + n;
     }
     return null;
   }, [workout.plan, sets]);
@@ -164,9 +168,10 @@ function Session({
   const working = sets.filter((s) => s.kind === 'working');
   const plannedTotal = workout.plan.reduce((a, p) => a + p.sets, 0);
 
-  async function onLog(item: PlanItem, values: { weightKg: number; reps: number; rir: number | null }, kind: WorkoutSet['kind'] = 'working') {
+  async function onLog(item: PlanItem, values: RecorderValues, kind: WorkoutSet['kind'] = 'working') {
     unlockAudio();
-    await logSet(workout.id, { exerciseId: item.exerciseId, kind, ...values }, kind === 'warmup' ? Math.min(60, item.restSec) : item.restSec);
+    await logSet(workout.id, { exerciseId: item.exerciseId, kind, ...values, planItemId: item.id }, kind === 'warmup' ? Math.min(60, item.restSec) : item.restSec);
+    if (kind === 'working' && sets.filter((s) => s.planItemId === item.id && s.kind === 'working').length + 1 >= item.sets) setSelectedIndex((current) => current === workout.plan.findIndex((p) => p.id === item.id) ? null : current);
   }
 
   async function onFinish() {
@@ -188,7 +193,7 @@ function Session({
       <header className="sticky top-0 z-20 -mx-4 flex h-[calc(56px+env(safe-area-inset-top))] items-center gap-2 border-b border-seam bg-floor/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur">
         <IconButton icon="chevronLeft" label="回訓練頁（訓練會保留）" onClick={() => navigate('/train')} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{workout.dayName}</p>
+          <p className="truncate font-semibold">{(selectedIndex != null && selectedIndex >= 0 ? workout.plan[selectedIndex]?.nameSnapshot : nextKey ? workout.plan[Number(nextKey.split(':')[0])]?.nameSnapshot : undefined) ?? workout.dayName}</p>
           <p className="num text-sm text-chalk-3">
             {elapsedText(now - workout.startedAt)} · {working.length}/{plannedTotal} 組
           </p>
@@ -207,8 +212,6 @@ function Session({
           </p>
         )}
         {workout.plan.map((item, index) => {
-          const firstIndex = workout.plan.findIndex((q) => q.exerciseId === item.exerciseId);
-          if (firstIndex !== index) return null;
           return (
             <ExerciseCard
               key={`${item.exerciseId}-${index}`}
@@ -216,9 +219,10 @@ function Session({
               item={item}
               index={index}
               ex={get(item.exerciseId)}
-              sets={sets.filter((s) => s.exerciseId === item.exerciseId)}
+              sets={sets.filter((s) => belongsToItem(s, item, index, workout.plan))}
               settings={settings}
-              nextKey={nextKey}
+              expanded={selectedIndex === index || (selectedIndex == null && nextKey?.startsWith(String(index) + ':') === true)}
+              onSelect={() => setSelectedIndex((current) => (current === index || current == null && nextKey?.startsWith(String(index) + ':')) ? -1 : index)}
               onLog={onLog}
               onMenu={() => setMenuIndex(index)}
             />
@@ -285,8 +289,12 @@ function Session({
           <Stat label="正式組" value={`${working.length}`} sub={`計畫 ${plannedTotal}`} />
           <Stat label="訓練量" value={`${fmt(toDisplayWeight(tonnage(sets), settings.units.weight), 0)}`} sub={settings.units.weight} />
         </div>
+        <div className="mt-4 flex flex-col gap-3">
+          <Field label="整體感受（選填）"><div className="flex gap-2">{(['輕鬆', '適中', '吃力'] as const).map((v) => <button type="button" key={v} aria-pressed={workout.feeling === v} className={'press min-h-11 flex-1 rounded-md border px-2 ' + (workout.feeling === v ? 'border-chalk text-chalk' : 'border-seam text-chalk-3')} onClick={() => void updateWorkoutDetails(workout.id, { feeling: workout.feeling === v ? undefined : v })}>{v}</button>)}</div></Field>
+          <Field label="給教練的備註（選填）"><textarea aria-label="給教練的備註" className="field min-h-20 py-2" maxLength={2000} defaultValue={workout.notes} onBlur={(e) => void updateWorkoutDetails(workout.id, { notes: e.target.value })} /></Field>
+        </div>
         {working.length < plannedTotal && working.length > 0 && (
-          <p className="mt-4 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">還有 {plannedTotal - working.length} 組沒做。有做但組數不足的動作算「未達標」、下次維持重量；完全沒做的動作不會調整。</p>
+          <p className="mt-4 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">還有 {plannedTotal - working.length} 組沒做。未完成的動作維持重量；已選跳過、替代或需注意的動作不累計失敗。完全沒做的動作不會調整。</p>
         )}
       </Sheet>
 
@@ -336,7 +344,8 @@ function ExerciseCard({
   ex,
   sets,
   settings,
-  nextKey,
+  expanded,
+  onSelect,
   onLog,
   onMenu,
 }: {
@@ -346,27 +355,28 @@ function ExerciseCard({
   ex: AnyExercise | undefined;
   sets: WorkoutSet[];
   settings: Settings;
-  nextKey: string | null;
-  onLog: (item: PlanItem, v: { weightKg: number; reps: number; rir: number | null }, kind?: WorkoutSet['kind']) => Promise<void>;
+  expanded: boolean;
+  onSelect: () => void;
+  onLog: (item: PlanItem, v: RecorderValues, kind?: WorkoutSet['kind']) => Promise<void>;
   onMenu: () => void;
 }) {
-  const unit = settings.units.weight;
+  const unit = item.context?.unit ?? settings.units.weight;
+  const [machineOpen, setMachineOpen] = useState(false);
   const [showWarmup, setShowWarmup] = useState(false);
   const [plateOpen, setPlateOpen] = useState(false);
-  const [dropDraft, setDropDraft] = useState(false);
+  const [dropDraft, setDropDraft] = useState(() => !!workout.drafts?.some((d) => d.planItemId === item.id && d.kind === 'drop'));
   const last = useLiveQuery(() => lastSessionSets(item.exerciseId, workout.id), [item.exerciseId, workout.id]);
   const state = useLiveQuery(() => db.progressionState.get(item.exerciseId), [item.exerciseId]);
-  const pref = useLiveQuery(() => db.exercisePrefs.get(item.exerciseId), [item.exerciseId]);
 
   const working = sets.filter((s) => s.kind === 'working');
   const warmups = sets.filter((s) => s.kind === 'warmup');
   const drops = sets.filter((s) => s.kind === 'drop');
   const lastWorking = (last ?? []).filter((s) => s.kind === 'working');
-  const rows = Math.max(item.sets, working.length);
+  const rows = Math.max(item.sets, working.length, ...working.map((v) => (v.position ?? 0) + 1));
   const isBarbell = ex ? BARBELL_EQUIPMENT.has(ex.equipment) : false;
   // 槓片與暖身都以使用者單位計算（磅制用 lb 槓片、EZ 槓用自己的槓重），記錄時再換回公斤
-  const setup = plateSetup(settings, ex?.equipment ?? 'barbell');
-  const step = ex
+  const setup = plateSetup({ ...settings, units: { weight: unit } }, ex?.equipment ?? 'barbell');
+  const step = item.context?.step ?? (ex
     ? unit === 'lb'
       ? lbStepFor(ex.equipment, setup.step / 2)
       : roundingStepFor(ex.equipment, {
@@ -374,7 +384,7 @@ function ExerciseCard({
           dumbbellStepKg: settings.equipment.dumbbellStepKg,
           machineStepKg: settings.equipment.machineStepKg,
         })
-    : 2.5;
+    : 2.5);
   const target = item.targetWeightKg;
   const targetU = target == null ? null : setup.toUnit(target);
   const warm =
@@ -391,6 +401,7 @@ function ExerciseCard({
     : { weightKg: null, reps: null };
   const repText = item.repMin === item.repMax ? `${item.repMax}` : `${item.repMin}–${item.repMax}`;
   const done = working.length >= item.sets;
+  const nextPosition = Array.from({ length: rows }, (_, i) => i).find((i) => !setAtPosition(working, i)) ?? -1;
 
   const defaultsFor = (i: number) => {
     const lastLogged = working.at(-1);
@@ -401,12 +412,12 @@ function ExerciseCard({
   };
 
   return (
-    <section className={`card overflow-hidden ${done ? 'opacity-80' : ''}`} aria-label={ex?.nameZh}>
+    <section className={`card overflow-hidden ${done ? 'opacity-80' : ''}`} aria-label={item.nameSnapshot ?? ex?.nameZh}>
       <div className="flex items-start gap-2 p-4 pb-2">
         <div className="min-w-0 flex-1">
-          <h2 className="flex items-center gap-2 text-h4 font-semibold">
-            <span className="truncate">{ex?.nameZh ?? '（已刪除的動作）'}</span>
-            {done && <Icon name="check" size={18} className="shrink-0 text-go" />}
+          <h2 className="flex items-center gap-2 text-h4 font-semibold"><button type="button" aria-expanded={expanded} onClick={onSelect} className="press min-h-11 min-w-0 text-left" aria-label={(expanded ? '收合' : '展開') + (item.nameSnapshot ?? ex?.nameZh ?? '動作')}>
+            <span className="truncate">{item.nameSnapshot ?? ex?.nameZh ?? '（已刪除的動作）'}</span>
+            </button>{done && <Icon name="check" size={18} className="shrink-0 text-go" />}
           </h2>
           <p className="num text-sm text-chalk-2">
             {item.sets} 組 × {repText} 下
@@ -414,16 +425,20 @@ function ExerciseCard({
             {item.supersetGroup != null && <span className="ml-1.5 rounded-sm bg-iron-3 px-1.5 text-cap">超級組</span>}
           </p>
           {lastWorking.length > 0 && (
-            <p className="num truncate text-sm text-chalk-3">
-              上次：{fmt(toDisplayWeight(lastWorking[0]!.weightKg, unit), 2)} {unit} × {lastWorking.map((s) => s.reps).join('、')}
+            <p className="num break-words text-sm text-chalk-3">
+              上次：{lastWorking.map((s) => fmt(toDisplayWeight(s.weightKg, unit), 2) + ' ' + unit + '×' + s.reps).join('／')}
             </p>
           )}
           {state?.lastMessage && !working.length && <p className="text-sm text-chalk-3">{state.lastMessage}</p>}
-          {pref?.note && <p className="mt-1 text-sm text-warn">📝 {pref.note}</p>}
+          <p className="mt-1 text-sm text-chalk-3">{WEIGHT_LABEL[item.context?.weightMeaning ?? 'unknown']} · 已做 {working.length}/{item.sets} 組</p>
+          {contextText(item.context) && <p className="mt-1 break-words text-sm text-warn">{contextText(item.context)}</p>}
+          {(item.skipReason || item.replacedBy) && <p className="text-sm text-warn">{item.skipReason ? '已跳過剩餘組：' + item.skipReason : '剩餘組改用替代動作'}</p>}
         </div>
         <IconButton icon="more" label={`${ex?.nameZh ?? ''} 選項`} onClick={onMenu} />
       </div>
 
+      <div style={{ display: expanded ? undefined : 'none' }}>
+      <button type="button" className="press mx-4 mb-3 min-h-11 text-sm text-chalk-2" onClick={() => setMachineOpen(true)}>器械設定與教練提醒</button>
       {isBarbell && targetU != null && targetU - setup.bar >= setup.step - 1e-6 && (
         <button type="button" onClick={() => setPlateOpen(true)} className="press mx-4 mb-2 flex items-center gap-2 rounded-md bg-well px-3 py-2 text-left" aria-label="槓片配重">
           <PlateBar target={targetU} bar={setup.bar} stock={setup.stock} unit={setup.unit} compact />
@@ -454,7 +469,7 @@ function ExerciseCard({
                       type="button"
                       aria-label={logged ? '已完成暖身組' : '完成暖身組'}
                       disabled={!!logged}
-                      onClick={() => void onLog(item, { weightKg: w.weightKg, reps: w.reps, rir: null }, 'warmup')}
+                      onClick={() => void onLog(item, { weightKg: w.weightKg, reps: w.reps, rir: null, setId: item.id + '-warm-' + i, position: i }, 'warmup')}
                       className={`press flex h-9 w-9 items-center justify-center rounded-md ${logged ? 'bg-go-soft text-go' : 'border border-seam text-chalk-3'}`}
                     >
                       <Icon name="check" size={16} />
@@ -468,25 +483,19 @@ function ExerciseCard({
       )}
 
       <div className="flex flex-col gap-1.5 px-2 pb-3 sm:px-4">
-        <div className={`grid items-center gap-2 px-2 text-cap text-chalk-3 ${settings.training.useRir ? 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_64px_48px]' : 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_48px]'}`}>
-          <span>組</span>
-          <span className="text-center">重量（{unit}）</span>
-          <span className="text-center">次數</span>
-          {settings.training.useRir && <span className="text-center">RIR</span>}
-          <span />
-        </div>
-        {Array.from({ length: rows }, (_, i) => (
+        {Array.from({ length: rows }, (_, i) => ((item.skipReason || item.replacedBy) && !setAtPosition(working, i) ? null : (
           <SetRow
-            key={working[i]?.id ?? `draft-${i}`}
+            key={setAtPosition(working, i)?.id ?? 'draft-' + i}
             n={i + 1}
-            logged={working[i]}
+            logged={setAtPosition(working, i)}
+            workout={workout} item={item} position={i} step={step}
             defaults={defaultsFor(i)}
             unit={unit}
             useRir={settings.training.useRir}
-            isNext={nextKey === `${index}:${i}`}
+            isNext={expanded && nextPosition === i}
             onLog={(v) => onLog(item, v)}
           />
-        ))}
+        )))}
         {(drops.length > 0 || dropDraft) && <p className="px-2 pt-1 text-cap text-chalk-3">遞減組（不列入進步規則與 PR）</p>}
         {drops.map((d, i) => (
           <SetRow
@@ -495,6 +504,7 @@ function ExerciseCard({
             label="遞減"
             name={`遞減組 ${i + 1}`}
             logged={d}
+            workout={workout} item={item} position={i} kind="drop" step={step}
             defaults={{ weightKg: d.weightKg, reps: d.reps }}
             unit={unit}
             useRir={settings.training.useRir}
@@ -509,6 +519,7 @@ function ExerciseCard({
             label="遞減"
             name={`遞減組 ${drops.length + 1}`}
             logged={undefined}
+            workout={workout} item={item} position={drops.length} kind="drop" step={step}
             defaults={dropDefaults}
             unit={unit}
             useRir={settings.training.useRir}
@@ -524,7 +535,7 @@ function ExerciseCard({
             type="button"
             disabled={item.sets >= LIMITS.planSets[1]}
             onClick={() => void updatePlanItem(workout.id, index, { sets: item.sets + 1 })}
-            className="press flex h-10 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2 disabled:opacity-40"
+            className="press flex h-11 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2 disabled:opacity-40"
           >
             <Icon name="plus" size={16} />
             加一組
@@ -534,7 +545,7 @@ function ExerciseCard({
             disabled={!lastLoggedWorking || dropDraft}
             onClick={() => setDropDraft(true)}
             title={lastLoggedWorking ? '做完正式組後立刻減重再做到力竭；不列入進步規則與 PR' : '先完成一組正式組'}
-            className="press flex h-10 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2 disabled:opacity-40"
+            className="press flex h-11 items-center justify-center gap-1 rounded-md text-sm font-medium text-chalk-3 hover:bg-iron-2 hover:text-chalk-2 disabled:opacity-40"
           >
             <Icon name="plus" size={16} />
             遞減組
@@ -546,121 +557,9 @@ function ExerciseCard({
       <Sheet open={plateOpen} onClose={() => setPlateOpen(false)} title="槓片配重">
         {target != null && <PlateCalculator initialKg={target} settings={settings} equipment={ex?.equipment === 'ezbar' ? 'ezbar' : 'barbell'} />}
       </Sheet>
+      </div>
+      {machineOpen && <MachineEditor workout={workout} item={item} index={index} onClose={() => setMachineOpen(false)} />}
     </section>
-  );
-}
-
-function SetRow({
-  n,
-  label,
-  name = `第 ${n} 組`,
-  logged,
-  defaults,
-  unit,
-  useRir,
-  isNext,
-  onLog,
-}: {
-  n: number;
-  /** 顯示在最左欄（預設是組號） */
-  label?: string;
-  /** 無障礙名稱與提示用，例如「第 2 組」「遞減組 1」 */
-  name?: string;
-  logged: WorkoutSet | undefined;
-  defaults: { weightKg: number | null; reps: number | null };
-  unit: 'kg' | 'lb';
-  useRir: boolean;
-  isNext: boolean;
-  onLog: (v: { weightKg: number; reps: number; rir: number | null }) => Promise<void>;
-}) {
-  const [weight, setWeight] = useState<number | null>(logged?.weightKg ?? defaults.weightKg);
-  const [reps, setReps] = useState<number | null>(logged?.reps ?? defaults.reps);
-  const [rir, setRir] = useState<number | null>(logged?.rir ?? null);
-  const [touched, setTouched] = useState(false);
-
-  // 尚未記錄且沒被手動改過時，跟著預設值（例如前一組改了重量）
-  useEffect(() => {
-    if (logged || touched) return;
-    setWeight(defaults.weightKg);
-    setReps(defaults.reps);
-  }, [defaults.weightKg, defaults.reps, logged, touched]);
-
-  const canLog = weight != null && weight >= 0 && reps != null && reps >= 1;
-
-  async function toggle() {
-    if (logged) {
-      const removed = await deleteSet(logged.id);
-      if (removed) toastUndo(`已取消${name}`, () => restoreSet(removed));
-      return;
-    }
-    if (!canLog) return;
-    await onLog({ weightKg: weight!, reps: Math.round(reps!), rir });
-  }
-
-  const commit = (patch: Partial<Pick<WorkoutSet, 'weightKg' | 'reps' | 'rir'>>) => {
-    if (logged) void updateSet(logged.id, patch);
-  };
-
-  return (
-    <div
-      className={`grid items-center gap-2 rounded-md px-2 py-1 ${useRir ? 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_64px_48px]' : 'grid-cols-[24px_minmax(0,1fr)_minmax(0,1fr)_48px]'} ${
-        logged ? 'bg-go-soft/60' : isNext ? 'bg-iron-2 ring-1 ring-seam-strong' : ''
-      }`}
-    >
-      <span className={`num text-center font-semibold ${label ? 'text-cap leading-tight' : 'text-base'} ${logged ? 'text-go' : 'text-chalk-3'}`}>{label ?? n}</span>
-      <NumberInput
-        ariaLabel={`${name}重量`}
-        value={weight == null ? null : Number(toDisplayWeight(weight, unit).toFixed(2))}
-        placeholder="填重量"
-        decimals={2}
-        min={0}
-        max={unit === 'kg' ? 1000 : 2200}
-        onChange={(v) => {
-          setTouched(true);
-          const kg = v == null ? null : fromDisplayWeight(v, unit);
-          setWeight(kg);
-          if (kg != null) commit({ weightKg: kg });
-        }}
-      />
-      <NumberInput
-        ariaLabel={`${name}次數`}
-        value={reps}
-        decimals={0}
-        min={0}
-        max={1000}
-        onChange={(v) => {
-          setTouched(true);
-          setReps(v);
-          if (v != null) commit({ reps: Math.round(v) });
-        }}
-      />
-      {useRir && (
-        <NumberInput
-          ariaLabel={`${name} RIR`}
-          value={rir}
-          decimals={0}
-          min={0}
-          max={10}
-          placeholder="—"
-          onChange={(v) => {
-            setRir(v);
-            commit({ rir: v });
-          }}
-        />
-      )}
-      <button
-        type="button"
-        aria-label={logged ? `取消${name}` : `完成${name}`}
-        aria-pressed={!!logged}
-        disabled={!logged && !canLog}
-        onClick={() => void toggle()}
-        className={`press flex h-11 w-12 items-center justify-center rounded-md disabled:opacity-30 ${
-          logged ? 'bg-go text-on-chalk' : isNext ? 'bg-chalk text-on-chalk' : 'border border-seam bg-iron-2 text-chalk-3'
-        }`}
-      >
-        <Icon name="check" size={22} strokeWidth={2.4} />
-      </button>
-    </div>
   );
 }
 
@@ -679,13 +578,13 @@ function ExerciseMenu({
   onClose: () => void;
   onSwap: () => void;
 }) {
-  const pref = useLiveQuery(() => db.exercisePrefs.get(item.exerciseId), [item.exerciseId]);
-  const loggedCount = useLiveQuery(() => db.sets.where({ workoutId: workout.id }).filter((s) => s.exerciseId === item.exerciseId).count(), [workout.id, item.exerciseId]) ?? 0;
+  const loggedCount = useLiveQuery(() => db.sets.where({ workoutId: workout.id }).filter((s) => belongsToItem(s, item, index, workout.plan)).count(), [workout.id, item.exerciseId]) ?? 0;
+  const [variant, setVariant] = useState('');
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const saveNote = async () => {
     if (note == null) return;
-    await db.exercisePrefs.put({ ...(pref ?? { exerciseId: item.exerciseId }), note: note.trim() || undefined, updatedAt: Date.now() });
+    await updatePlanItem(workout.id, index, { context: { ...item.context, reminder: note.trim() } });
   };
   return (
     <Sheet open onClose={onClose} title={ex?.nameZh ?? '動作'}>
@@ -703,7 +602,7 @@ function ExerciseMenu({
           <textarea
             className="field min-h-20 py-2"
             maxLength={500}
-            value={note ?? pref?.note ?? ''}
+            value={note ?? item.context?.reminder ?? ''}
             onChange={(e) => setNote(e.target.value)}
             onBlur={() => void saveNote()}
           />
@@ -716,6 +615,15 @@ function ExerciseMenu({
             <NumberInput ariaLabel="休息秒數" value={item.restSec} step={15} decimals={0} min={0} max={900} stepper onChange={(v) => v != null && void updatePlanItem(workout.id, index, { restSec: Math.round(v) })} />
           </Field>
         </div>
+        <Field label="跳過剩餘組">
+          <div className="flex flex-wrap gap-2">{SKIP_REASONS.map((reason) => <Button key={reason} onClick={async () => { await updatePlanItem(workout.id, index, { skipReason: reason }); onClose(); }}>{reason}</Button>)}</div>
+          {item.skipReason && <Button onClick={async () => { await updatePlanItem(workout.id, index, { skipReason: undefined }); onClose(); }}>恢復此動作</Button>}
+        </Field>
+        <Field label="不同機台，另建器械版本">
+          <input className="field" aria-label="器械版本名稱" maxLength={30} placeholder="例如：靠窗的 A 機" value={variant} onChange={(e) => setVariant(e.target.value)} />
+          <Button disabled={!variant.trim()} onClick={async () => { try { const id = await createMachineVariant(item.exerciseId, variant); await swapPlanExercise(workout.id, index, id); onClose(); } catch { toast('新增器械版本失敗，請重試', { tone: 'error' }); } }}>建立版本並換用</Button>
+          <p className="text-sm text-chalk-3">不同版本分開保留重量、歷史與進步狀態。</p>
+        </Field>
         <div className="flex flex-col gap-2">
           <Button icon="swap" block onClick={onSwap}>
             換成其他動作

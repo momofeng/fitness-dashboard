@@ -2,6 +2,7 @@
 // 慣例：一律存 kg / cm / kcal / ml；日期為本地 'YYYY-MM-DD'；每筆都有 updatedAt（毫秒）。
 
 import { z } from 'zod';
+import { SET_FLAGS, WEIGHT_MEANINGS, SKIP_REASONS } from '../core/training/logging';
 import {
   EQUIPMENT,
   GOAL_TYPES,
@@ -16,12 +17,12 @@ import {
   SUPPLEMENT_CATEGORIES,
 } from '../content/types';
 import { isDateKey } from '../core/dates';
-import { goalValueRange, LIMITS, PHOTO, type LimitKey } from './limits';
+import { AI, goalValueRange, LIMITS, PHOTO, type LimitKey } from './limits';
 
 const dateKey = z.string().refine(isDateKey, { message: '日期格式須為 YYYY-MM-DD' });
 const id = z.string().min(1).max(100);
 const ts = z.number().int().nonnegative();
-const kg = z.number().min(0).max(1000);
+const kg = z.number().min(LIMITS.setWeightKg[0]).max(LIMITS.setWeightKg[1]);
 const nonneg = z.number().min(0);
 /** 依 LIMITS 的範圍建立數字 schema */
 const lim = (key: LimitKey) => z.number().min(LIMITS[key][0]).max(LIMITS[key][1]);
@@ -128,8 +129,34 @@ const exerciseFields = {
 export const customExerciseSchema = z.object({ id, ...exerciseFields, updatedAt: ts });
 export type CustomExercise = z.infer<typeof customExerciseSchema>;
 
+export const machineContextSchema = z.object({
+  machine: z.string().max(60).optional(),
+  seat: z.string().max(60).optional(),
+  grip: z.string().max(80).optional(),
+  reminder: z.string().max(500).optional(),
+  weightMeaning: z.enum(WEIGHT_MEANINGS).optional(),
+  unit: z.enum(['kg', 'lb']).optional(),
+  step: lim('machineStep').optional(),
+});
+export type MachineContext = z.infer<typeof machineContextSchema>;
+export const observationSchema = z.object({
+  flags: z.array(z.enum(SET_FLAGS)).max(4).optional(),
+  note: z.string().max(500).optional(),
+  discomfortArea: z.string().max(60).optional(),
+});
+export const setDraftSchema = observationSchema.extend({
+  id,
+  planItemId: id,
+  kind: z.enum(['warmup', 'working', 'drop']),
+  position: z.number().int().min(0).max(1000),
+  weightKg: lim('setWeightKg').nullable(),
+  reps: limInt('setReps').nullable(),
+  rir: z.number().min(0).max(10).nullable(),
+});
+export type SetDraft = z.infer<typeof setDraftSchema>;
 export const exercisePrefSchema = z.object({
   exerciseId: id,
+  context: machineContextSchema.optional(),
   note: z.string().max(500).optional(),
   restSec: z.number().int().min(0).max(900).optional(),
   incrementKg: z.number().min(0).max(20).optional(),
@@ -182,6 +209,11 @@ export type ProgressionStateRow = z.infer<typeof progressionStateSchema>;
 
 /** 開始訓練時把當天課表快照存在 workout 上，之後改課表不影響這場 */
 export const planItemSchema = z.object({
+  id: id.optional(),
+  nameSnapshot: z.string().max(120).optional(),
+  context: machineContextSchema.optional(),
+  skipReason: z.enum(SKIP_REASONS).optional(),
+  replacedBy: id.optional(),
   exerciseId: id,
   sets: z.number().int().min(LIMITS.planSets[0]).max(LIMITS.planSets[1]),
   repMin: z.number().int().min(1).max(100),
@@ -208,6 +240,9 @@ export const workoutSchema = z.object({
   restEndsAt: ts.nullable(),
   restStartedAt: ts.nullable().optional(),
   notes: z.string().max(2000),
+  feeling: z.enum(['輕鬆', '適中', '吃力']).optional(),
+  drafts: z.array(setDraftSchema).max(2000).optional(),
+  correctedAt: ts.optional(),
   /** 完成時算出的摘要，例如 PR 數 */
   summary: z
     .object({ prs: z.array(z.string()), messages: z.array(z.object({ exerciseId: id, text: z.string() })) })
@@ -223,10 +258,15 @@ export const setSchema = z.object({
   workoutId: id,
   date: dateKey,
   exerciseId: id,
+  planItemId: id.optional(),
+  position: z.number().int().min(0).max(1000).optional(),
+  flags: observationSchema.shape.flags,
+  note: observationSchema.shape.note,
+  discomfortArea: observationSchema.shape.discomfortArea,
   order: z.number().int().min(0),
   kind: z.enum(['warmup', 'working', 'drop']),
   weightKg: kg,
-  reps: z.number().int().min(0).max(1000),
+  reps: limInt('setReps'),
   rir: z.number().min(0).max(10).nullable(),
   completedAt: ts,
   updatedAt: ts,
@@ -241,6 +281,10 @@ export const cardioSchema = z.object({
   distanceKm: nonneg.max(1000).nullable(),
   kcal: nonneg.max(10000).nullable(),
   note: z.string().max(500),
+  speedKmh: lim('cardioSpeed').nullable().optional(),
+  inclinePct: lim('cardioIncline').nullable().optional(),
+  resistance: lim('cardioResistance').nullable().optional(),
+  feeling: z.enum(['輕鬆', '適中', '吃力']).optional(),
   updatedAt: ts,
 });
 export type Cardio = z.infer<typeof cardioSchema>;
@@ -325,6 +369,15 @@ export const foodUsageSchema = z.object({
   lastUnit: qtyUnit,
 });
 export type FoodUsage = z.infer<typeof foodUsageSchema>;
+
+/** 「記住我的校正」：AI 辨識出的名稱（正規化後）→ 你選定的資料庫食物 */
+export const aiMatchSchema = z.object({
+  norm: z.string().min(1).max(AI.nameMax),
+  foodKey: z.string().min(1).max(100),
+  count: z.number().int().min(1),
+  updatedAt: ts,
+});
+export type AiMatch = z.infer<typeof aiMatchSchema>;
 
 export const dailyLogSchema = z.object({
   date: dateKey,

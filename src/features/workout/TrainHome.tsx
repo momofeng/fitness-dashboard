@@ -1,3 +1,4 @@
+import { TrainingOverview } from './TrainingOverview';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -165,6 +166,7 @@ export default function TrainHome() {
         </Section>
       )}
 
+      <TrainingOverview today={today} />
       <Section title="最近訓練" action={<Link to="/train/history" className="text-sm text-chalk-3 hover:text-chalk">全部紀錄</Link>}>
         {recent && recent.length > 0 ? (
           <div className="card divide-y divide-seam overflow-hidden">

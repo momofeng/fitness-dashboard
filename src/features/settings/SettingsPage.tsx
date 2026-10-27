@@ -9,6 +9,7 @@ import { Button, IconButton } from '../../ui/Button';
 import { Field, NumberInput, Segmented, TextField, Toggle } from '../../ui/Fields';
 import { ListRow, PageHeader, Section } from '../../ui/Layout';
 import { useTargets } from '../shared/useToday';
+import { AiCard } from './AiSection';
 
 function Card({ children }: { children: ReactNode }) {
   return <div className="card flex flex-col gap-4 p-4">{children}</div>;
@@ -24,7 +25,7 @@ export default function SettingsPage() {
       <PageHeader title="設定" back="/more" />
 
       <Section title="資料">
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden"><ListRow to="/sync"><p className="font-medium">加密雲端同步</p><p className="text-sm text-chalk-3">免帳號，使用恢復金鑰或掃碼加入</p></ListRow>
           <ListRow to="/settings/data">
             <p className="font-medium">資料與備份</p>
             <p className="text-sm text-chalk-3">匯出、匯入、CSV、儲存空間</p>
@@ -210,6 +211,10 @@ export default function SettingsPage() {
 
       <Section title="器材">
         <EquipmentCard s={s} />
+      </Section>
+
+      <Section title="AI 辨識（拍照記飲食）">
+        <AiCard s={s} />
       </Section>
 
       <Section title="一般">

@@ -18,6 +18,10 @@ export interface FoodItem {
   servingLabel: string;
   source: 'tfda' | 'custom';
   rank?: number;
+  /** 衛福部資料庫的樣品狀態（例如「生,雞胸部位」「熟,水煮」）；自建食物沒有 */
+  state?: string;
+  /** 真正的俗名（不含 aliases 裡為了搜尋而混入的樣品狀態字樣）；AI 辨識對應時用來判斷「就是這個食物」 */
+  exactAliases?: string[];
 }
 
 export function customToItem(f: CustomFood): FoodItem {
@@ -75,6 +79,56 @@ export async function addFoodLog(input: {
     await bumpUsage(input.item.key, input.item.name, input.qty, input.unit);
   });
   return row;
+}
+
+export interface FoodLogInput {
+  item: Pick<FoodItem, 'key' | 'name' | 'per' | 'servingG'>;
+  qty: number;
+  unit: 'g' | 'serving';
+}
+
+/**
+ * 一次寫入多筆（拍照辨識、一句話輸入）。同一個交易：先在記憶體算好每筆營養（任何一筆無法換算就整批不寫），
+ * 常用食物依 foodKey 先合併再各讀寫一次——同一交易對同一個 key 連發 get→put，後一次會讀到寫入前的舊值。
+ */
+export async function addFoodLogs(date: string, meal: Meal, entries: FoodLogInput[], source: FoodLog['source'] = 'ai'): Promise<FoodLog[]> {
+  assertDay(date);
+  const now = Date.now();
+  const rows: FoodLog[] = entries.map((e, i) => {
+    const n = computeEntry(e.item.per, e.qty, e.unit, e.item.servingG);
+    if (!n) throw new Error(`「${e.item.name}」的份量無法換算，請改用克數或份數`);
+    return {
+      id: newId(),
+      date,
+      meal,
+      foodKey: e.item.key,
+      name: e.item.name,
+      qty: e.qty,
+      unit: e.unit,
+      per: e.item.per,
+      ...n,
+      source,
+      createdAt: now + i,
+      updatedAt: now + i,
+    };
+  });
+  const usage = new Map<string, { name: string; add: number; qty: number; unit: 'g' | 'serving' }>();
+  for (const r of rows) {
+    const u = usage.get(r.foodKey!);
+    usage.set(r.foodKey!, { name: r.name, add: (u?.add ?? 0) + 1, qty: r.qty, unit: r.unit });
+  }
+  await db.transaction('rw', db.foodLogs, db.foodUsage, async () => {
+    await db.foodLogs.bulkPut(rows);
+    const keys = [...usage.keys()];
+    const cur = await db.foodUsage.bulkGet(keys);
+    await db.foodUsage.bulkPut(
+      keys.map((foodKey, i) => {
+        const u = usage.get(foodKey)!;
+        return { foodKey, name: u.name, count: (cur[i]?.count ?? 0) + u.add, lastUsedAt: now, lastQty: u.qty, lastUnit: u.unit };
+      }),
+    );
+  });
+  return rows;
 }
 
 /** 改份量：依原本的倍數比例重算（單位不變） */

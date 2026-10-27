@@ -44,7 +44,9 @@ test('H2：訓練中換動作，已記錄的組保留；移除需要確認且可
   await page.getByRole('button', { name: /^腿推機/ }).first().click();
   await expect(page.getByText('已完成的組保留在原動作')).toBeVisible();
   await expect(page.getByRole('region', { name: '腿推機' })).toBeVisible();
-  await expect(squat.getByRole('button', { name: '取消第 1 組' })).toBeVisible();
+  const expand = squat.getByRole('button', { name: '展開槓鈴深蹲' });
+  if (await expand.isVisible()) await expand.click();
+  await expect(squat.getByRole('button', { name: '編輯第 1 組' })).toBeVisible();
   expect(await readAll(page, 'sets')).toHaveLength(1);
 
   // 移除深蹲：第一次按只提示，第二次才刪；可以復原
@@ -56,7 +58,8 @@ test('H2：訓練中換動作，已記錄的組保留；移除需要確認且可
   await expect(squat).toHaveCount(0);
   expect(await readAll(page, 'sets')).toHaveLength(0);
   await page.getByRole('button', { name: '復原' }).click();
-  await expect(squat.getByRole('button', { name: '取消第 1 組' })).toBeVisible();
+  if (await expand.isVisible()) await expand.click();
+  await expect(squat.getByRole('button', { name: '編輯第 1 組' })).toBeVisible();
   expect(await readAll(page, 'sets')).toHaveLength(1);
 });
 

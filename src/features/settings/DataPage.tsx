@@ -1,4 +1,7 @@
+import { Link } from 'react-router';
+import { observationText, WEIGHT_LABEL } from '../../core/training/logging';
 import { useEffect, useState } from 'react';
+import { clearAiKey } from '../../ai/key';
 import { toCsv } from '../../core/csv';
 import { diffDays, todayKey, toDateKey } from '../../core/dates';
 import { db } from '../../db/db';
@@ -41,8 +44,12 @@ export default function DataPage() {
       const wName = new Map(workouts.map((w) => [w.id, w.dayName]));
       const kindLabel = { warmup: '暖身', working: '正式', drop: '遞減' } as const;
       csv = toCsv(
-        ['日期', '訓練', '動作', '類型', '重量(kg)', '次數', 'RIR'],
-        sets.map((x) => [x.date, wName.get(x.workoutId) ?? '', get(x.exerciseId)?.nameZh ?? x.exerciseId, kindLabel[x.kind], x.weightKg, x.reps, x.rir ?? '']),
+        ['日期', '訓練', '動作', '類型', '重量(kg)', '次數', 'RIR', '狀態與備註', '器械', '座椅／靠墊', '握把', '重量定義', '教練提醒'],
+        sets.map((x) => {
+          const w = workouts.find((w) => w.id === x.workoutId);
+          const p = w?.plan.find((p) => x.planItemId ? p.id === x.planItemId : p.exerciseId === x.exerciseId);
+          return [x.date, wName.get(x.workoutId) ?? '', p?.nameSnapshot ?? get(x.exerciseId)?.nameZh ?? x.exerciseId, kindLabel[x.kind], x.weightKg, x.reps, x.rir ?? '', observationText(x), p?.context?.machine ?? '', p?.context?.seat ?? '', p?.context?.grip ?? '', WEIGHT_LABEL[p?.context?.weightMeaning ?? 'unknown'], p?.context?.reminder ?? ''];
+        }),
       );
     } else if (kind === 'food') {
       const logs = await db.foodLogs.orderBy('date').toArray();
@@ -76,9 +83,12 @@ export default function DataPage() {
   async function clearAll() {
     setBusy(true);
     try {
-      await db.transaction('rw', db.tables, async () => {
+      const { withSyncStopped } = await import('../../sync/engine');
+      await withSyncStopped(() => db.transaction('rw', db.tables, async () => {
         await Promise.all(db.tables.map((t) => t.clear()));
-      });
+      }));
+      // AI 金鑰不在資料庫裡，「清除全部資料」要一併清掉
+      clearAiKey();
       location.hash = '#/onboarding';
       location.reload();
     } finally {
@@ -89,6 +99,7 @@ export default function DataPage() {
   return (
     <div className="flex flex-col gap-6 pb-8">
       <PageHeader title="資料與備份" back="/settings" />
+      <Section title="跨裝置同步"><Link to="/sync" className="press card flex min-h-16 flex-col justify-center gap-1 p-4"><span className="font-semibold">加密雲端同步</span><span className="text-sm text-chalk-3">免帳號 · 恢復金鑰 · 限時 QR 配對</span></Link></Section>
 
       <div className="card flex flex-col gap-3 p-4">
         <div className="flex items-start gap-3">
@@ -98,7 +109,7 @@ export default function DataPage() {
           <div className="min-w-0 flex-1">
             <p className="font-semibold">備份到手機以外的地方</p>
             <p className="text-sm text-chalk-3">
-              資料只存在這個瀏覽器。換手機、清除瀏覽器資料或解除安裝前，一定要先備份。
+              資料預設保存在這個瀏覽器，也可選擇加密雲端同步。換手機、清除瀏覽器資料或解除安裝前，一定要先備份。
               {lastDays == null ? '你還沒有備份過。' : lastDays === 0 ? '今天已備份。' : `上次備份是 ${lastDays} 天前。`}
             </p>
           </div>
@@ -210,7 +221,7 @@ export default function DataPage() {
           </div>
         }
       >
-        <p className="text-base text-chalk-2">訓練、飲食、身體數據、進度照與設定都會刪除，無法復原。建議先做 ZIP 完整備份。</p>
+        <p className="text-base text-chalk-2">訓練、飲食、身體數據、進度照與設定都會刪除，無法復原。建議先做 ZIP 完整備份。清除本機時會停止此裝置同步，不會刪除雲端版本。</p>
       </Sheet>
     </div>
   );

@@ -96,7 +96,8 @@ describe('v1 → v2 遷移', () => {
 
     const upgraded = new FitnessDB(name);
     await upgraded.open();
-    expect(upgraded.verno).toBe(2);
+    // v1 → v2 → v3 依序升級（v3 只新增 aiMatches 表）
+    expect(upgraded.verno).toBe(4);
     const row = await upgraded.settings.get('app');
     expect(row).toEqual(MIGRATIONS[1]!({ settings: [v1] }).settings![0]);
     expect(settingsSchema.safeParse(row).success).toBe(true);

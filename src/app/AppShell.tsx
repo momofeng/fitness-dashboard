@@ -1,3 +1,4 @@
+import { SyncBadge } from '../features/sync/SyncBadge';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
@@ -76,6 +77,7 @@ export function AppShell() {
       </aside>
 
       <main className="mx-auto w-full max-w-5xl min-w-0 px-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:px-8 md:pb-12">
+        {pathname !== '/sync' && <div className="pt-2"><SyncBadge /></div>}
         <Outlet />
       </main>
 

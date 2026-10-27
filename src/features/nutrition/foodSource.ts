@@ -66,6 +66,7 @@ export function loadTfda(): Promise<TfdaDb> {
           key: `tfda:${r[idx.id!]}`,
           name: String(r[idx.name!]),
           aliases: [...aliases, ...stripped, ...stateWords],
+          exactAliases: [...aliases, ...stripped],
           rank: (CATEGORY_RANK[category] ?? 0) + (/^生/.test(state) ? 3 : 0),
           sub: [aliases.slice(0, 2).join('、'), state.slice(0, 18), r[idx.category!]].filter(Boolean).join(' · ') + ' · 每 100 g',
           per: {
@@ -81,6 +82,7 @@ export function loadTfda(): Promise<TfdaDb> {
           servingG: typeof r[idx.unitG!] === 'number' ? (r[idx.unitG!] as number) : null,
           servingLabel: typeof r[idx.unitG!] === 'number' ? `約 ${r[idx.unitG!]} g` : '',
           source: 'tfda',
+          state,
         };
       });
       return { version: f.version, items, byKey: new Map(items.map((i) => [i.key, i])) };

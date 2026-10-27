@@ -25,12 +25,12 @@ export function barcodeDetectorAvailable(): boolean {
 }
 
 /** 建立偵測器；不支援或沒有商品條碼格式時回傳 null */
-export async function createBarcodeDetector(): Promise<BarcodeDetectorLike | null> {
+export async function createBarcodeDetector(requested: string[] = RETAIL): Promise<BarcodeDetectorLike | null> {
   const C = ctor();
   if (!C) return null;
   try {
-    const supported = (await C.getSupportedFormats?.()) ?? RETAIL;
-    const formats = RETAIL.filter((f) => supported.includes(f));
+    const supported = (await C.getSupportedFormats?.()) ?? requested;
+    const formats = requested.filter((f) => supported.includes(f));
     if (formats.length === 0) return null;
     return new C({ formats });
   } catch {

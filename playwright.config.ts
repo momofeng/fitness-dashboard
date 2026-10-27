@@ -39,11 +39,16 @@ export default defineConfig({
     trace: 'retain-on-failure',
     launchOptions: { executablePath: chromiumPath() },
   },
-  webServer: {
+  webServer: [{
     // 與 GitHub Pages 相同的 base path，並使用正式 build（含 service worker）
     command: 'npx vite build && npx vite preview --port 4173 --strictPort',
     url: BASE,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-  },
+  }, {
+    command: 'node tests/support/sync-server.mts',
+    url: 'http://127.0.0.1:8789/api/health',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+  }],
 });

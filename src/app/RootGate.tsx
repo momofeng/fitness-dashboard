@@ -1,3 +1,4 @@
+import { SyncBootstrap } from '../sync/Bootstrap';
 import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useSettings } from '../db/repo/settings';
@@ -27,12 +28,13 @@ export function RootGate() {
 
   if (!settings) return <div className="min-h-dvh bg-floor" aria-busy="true" />;
   const onOnboarding = location.pathname.startsWith('/onboarding');
-  if (!settings.onboarded && !onOnboarding) return <Navigate to="/onboarding" replace />;
+  if (!settings.onboarded && !onOnboarding && location.pathname !== '/sync') return <Navigate to="/onboarding" replace />;
   // 完成設定的瞬間，設定的即時查詢可能還沒更新而被彈回設定頁；更新後在這裡導回首頁，不會卡在第一步
   if (settings.onboarded && onOnboarding) return <Navigate to="/" replace />;
 
   return (
     <>
+      <SyncBootstrap />
       <Outlet />
       {sw === 'update' && !location.pathname.startsWith('/train/session') && (
         <div className="fixed inset-x-0 top-0 z-40 flex justify-center px-4 pt-[max(8px,env(safe-area-inset-top))]">

@@ -28,7 +28,7 @@ test('遞減組：正式組後可加遞減組，存成 drop、不算正式組', 
   await expect(squat.getByLabel('遞減組 1重量')).toHaveValue('47.5');
   await expectNoHorizontalOverflow(page, '訓練中＋遞減組');
   await squat.getByRole('button', { name: '完成遞減組 1' }).click();
-  await expect(squat.getByRole('button', { name: '取消遞減組 1' })).toBeVisible();
+  await expect(squat.getByRole('button', { name: '編輯遞減組 1' })).toBeVisible();
   // 正式組進度不變：第 2 組仍是下一組
   await expect(squat.getByRole('button', { name: '完成第 2 組' })).toBeEnabled();
   const sets = await readAll<{ kind: string; weightKg: number }>(page, 'sets');

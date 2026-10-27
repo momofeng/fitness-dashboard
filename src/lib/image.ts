@@ -26,14 +26,30 @@ function toJpeg(c: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('圖片編碼失敗'))), 'image/jpeg', quality));
 }
 
-export async function processPhoto(file: File): Promise<ProcessedPhoto> {
+/** 依 EXIF 方向轉正地讀成點陣圖；檔案太大或不是圖片時丟中文錯誤訊息 */
+async function loadBitmap(file: Blob): Promise<ImageBitmap> {
   if (file.size > PHOTO.inputMaxBytes) throw new Error(`照片超過 ${PHOTO.inputMaxBytes / 1024 / 1024} MB`);
-  let bmp: ImageBitmap;
   try {
-    bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    return await createImageBitmap(file, { imageOrientation: 'from-image' });
   } catch {
     throw new Error('無法讀取這個檔案，請選 JPEG 或 PNG 照片');
   }
+}
+
+/** 縮到長邊 longSide 的 JPEG（重新編碼後不帶 EXIF／GPS）。AI 辨識用，不存進資料庫 */
+export async function resizeToJpeg(file: Blob, longSide: number, quality: number): Promise<{ blob: Blob; width: number; height: number }> {
+  const bmp = await loadBitmap(file);
+  try {
+    const size = fitWithin(bmp.width, bmp.height, longSide);
+    const blob = await toJpeg(canvasOf(bmp, size.width, size.height), quality);
+    return { blob, width: size.width, height: size.height };
+  } finally {
+    bmp.close();
+  }
+}
+
+export async function processPhoto(file: File): Promise<ProcessedPhoto> {
+  const bmp = await loadBitmap(file);
   try {
     const full = fitWithin(bmp.width, bmp.height, PHOTO.fullLongSide);
     const blob = await toJpeg(canvasOf(bmp, full.width, full.height), PHOTO.fullQuality);

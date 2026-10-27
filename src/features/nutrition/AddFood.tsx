@@ -15,6 +15,7 @@ import { Sheet } from '../../ui/Sheet';
 import { toast } from '../../ui/toast';
 import { useTargets } from '../shared/useToday';
 import { useTfda } from './foodSource';
+import { AiFoodEntry } from './AiEntry';
 import { BarcodeScanner } from './BarcodeScanner';
 import { CustomFoodForm } from './MyFoods';
 import { guessMeal, QuickAddSheet } from './NutritionDay';
@@ -96,6 +97,7 @@ export default function AddFood() {
           aria-label="搜尋食物"
         />
       </div>
+      <AiFoodEntry date={date} meal={meal} onAdded={() => navigate(`/eat${date !== today ? `?date=${date}` : ''}`)} />
       <div className="grid grid-cols-2 gap-2">
         <Button size="sm" icon="plus" onClick={() => setCreating(true)}>
           依營養標示新增

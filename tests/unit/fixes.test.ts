@@ -66,7 +66,7 @@ describe('H2：換動作／移除不會無聲刪掉已記錄的組', () => {
     await work(w, 'barbell-back-squat', 60, [6, 6]);
     expect(await swapPlanExercise(w, 0, 'leg-press')).toBe('kept');
     const plan = (await db.workouts.get(w))!.plan;
-    expect(plan[0]).toMatchObject({ exerciseId: 'barbell-back-squat', sets: 2 });
+    expect(plan[0]).toMatchObject({ exerciseId: 'barbell-back-squat', sets: 3, replacedBy: plan[1]!.id });
     expect(plan[1]?.exerciseId).toBe('leg-press');
     expect(await db.sets.count()).toBe(2);
   });

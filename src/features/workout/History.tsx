@@ -1,3 +1,4 @@
+import { WorkoutShare } from './WorkoutShare';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { shortDateLabel } from '../../core/dates';
 import { tonnage } from '../../core/training/volume';
@@ -34,6 +35,7 @@ export default function History() {
   return (
     <div className="flex flex-col gap-6 pb-4">
       <PageHeader title="訓練紀錄" back="/train" sub={`共 ${workouts.length} 場`} />
+      {workouts[0] && <WorkoutShare date={workouts[0].date} />}
       {workouts.length === 0 && <EmptyState icon="history" title="還沒有訓練紀錄" body="完成一場訓練後會出現在這裡。" />}
       {[...groups].map(([month, list]) => (
         <section key={month} className="flex flex-col gap-2">

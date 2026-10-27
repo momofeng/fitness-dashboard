@@ -2,6 +2,7 @@
 
 import type { z } from 'zod';
 import {
+  aiMatchSchema,
   bodyMetricSchema,
   cardioSchema,
   customExerciseSchema,
@@ -46,4 +47,5 @@ export const BACKUP_SCHEMAS: Record<BackupTable, z.ZodType> = {
   habits: habitSchema,
   habitLogs: habitLogSchema,
   photos: photoSchema,
+  aiMatches: aiMatchSchema,
 };

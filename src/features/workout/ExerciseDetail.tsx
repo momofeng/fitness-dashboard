@@ -1,3 +1,4 @@
+import { observationText } from '../../core/training/logging';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -156,10 +157,10 @@ export default function ExerciseDetail() {
             {[...byWorkout].slice(0, 30).map(([wid, list]) => (
               <button key={wid} type="button" onClick={() => navigate(`/train/history/${wid}`)} className="press flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-iron-2">
                 <span className="num w-24 shrink-0 text-sm text-chalk-3">{shortDateLabel(list[0]!.date)}</span>
-                <span className="num min-w-0 flex-1 truncate text-sm">
+                <span className="num min-w-0 flex-1 break-words text-sm">
                   {list
                     .filter((s) => s.kind === 'working')
-                    .map((s) => `${fmt(toDisplayWeight(s.weightKg, unit), 2)}×${s.reps}`)
+                    .map((s) => fmt(toDisplayWeight(s.weightKg, unit), 2) + '×' + s.reps + '（' + observationText(s) + '）')
                     .join('  ')}
                 </span>
               </button>
